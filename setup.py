@@ -63,6 +63,7 @@ setup(
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=['numpy', 'scipy', 'cvxpy', 'torch', 'torchvision', 'scikit-learn', 'matplotlib',
                       'tqdm', 'IPython', 'cvxopt', 'wandb', 'seaborn', 'tabulate', 'mosek',
-                      'stable-baselines3', 'dill', 'shap', 'tensorflow', 'econml', 'keras',
-                      'random-fourier-features-pytorch', 'nvidia-pyindex', 'nvidia-cudnn'],
+                      'stable-baselines3', 'dill', 'shap', 'econml',
+                      'random-fourier-features-pytorch',
+                      ],
 )

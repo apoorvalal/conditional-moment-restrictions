@@ -2,7 +2,7 @@ import cvxpy as cvx
 import torch
 
 from cmr.methods.kmm import KMM
-from cmr.utils.torch_utils import Parameter, ModularMLPModel
+from cmr.utils.torch_utils import ModularMLPModel
 from cmr.default_config import kmm_neural_kwargs
 
 cvx_solver = cvx.MOSEK

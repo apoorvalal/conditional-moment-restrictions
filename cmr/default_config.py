@@ -1,6 +1,5 @@
 import copy
 
-import numpy as np
 
 """Default configurations and hyperparameter search spaces for all methods"""
 
@@ -118,7 +117,7 @@ methods = {
             'hyperparams': {'reg_param': [1e-8, 1e-6, 1e-4]}
         },
 
-    f'GEL':
+    'GEL':
         {
             'estimator_kwargs': gel_kwargs,
             'hyperparams': {"divergence": ['chi2', 'kl', 'log'],
@@ -157,7 +156,7 @@ methods = {
                             }
         },
 
-    f'FGEL-kernel':
+    'FGEL-kernel':
         {
             'estimator_kwargs': fgel_kernel_kwargs,
             'hyperparams': {

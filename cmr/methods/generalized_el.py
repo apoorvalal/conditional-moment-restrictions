@@ -4,15 +4,12 @@ import time
 import cvxpy as cvx
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
 import logging
 
 from cmr.methods.abstract_estimation_method import AbstractEstimationMethod
 from cmr.utils.oadam import OAdam
-from cmr.utils.torch_utils import Parameter, BatchIter, OptimizationError, np_to_tensor
+from cmr.utils.torch_utils import Parameter, BatchIter, OptimizationError
 from cmr.default_config import gel_kwargs
-from experiments.exp_bennett_heteroskedastic_iv import HeteroskedasticIVScenario
-from experiments.exp_network_iv import NetworkIVExperiment
 
 cvx_solver = cvx.MOSEK
 

@@ -1,7 +1,6 @@
-import functools
 
-from cmr.utils.rkhs_utils import get_rbf_kernel, compute_cholesky_factor, get_sigma_median_heuristic, hsic
-from cmr.utils.torch_utils import np_to_tensor, to_device, tensor_to_np
+from cmr.utils.rkhs_utils import get_rbf_kernel, compute_cholesky_factor, hsic
+from cmr.utils.torch_utils import np_to_tensor, to_device
 import numpy as np
 import torch
 import torch.nn as nn

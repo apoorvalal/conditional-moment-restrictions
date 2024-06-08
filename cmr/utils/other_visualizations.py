@@ -1,14 +1,10 @@
 import numpy as np
 import torch
-import matplotlib
 #matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-import cvxpy as cvx
 import seaborn as sns
 
 
-from cmr.methods.kmm import KMM
-from cmr.utils.torch_utils import Parameter, OptimizationError
 from visualize_kel import NEURIPS_RCPARAMS, Model, KMMAnalysis, LINE_WIDTH
 from cmr.default_config import methods
 from experiments.exp_heteroskedastic import eval_model, HeteroskedasticNoiseExperiment

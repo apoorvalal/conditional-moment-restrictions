@@ -1,5 +1,6 @@
 import numpy as np
-import scipy.linalg, scipy.sparse
+import scipy.linalg
+import scipy.sparse
 import torch
 
 from cmr.methods.abstract_estimation_method import AbstractEstimationMethod

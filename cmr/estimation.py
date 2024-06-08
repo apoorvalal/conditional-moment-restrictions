@@ -7,7 +7,7 @@ from cmr.methods.mmr import MMR
 from cmr.methods.least_squares import OrdinaryLeastSquares
 from cmr.default_config import methods
 from cmr.import_estimator import mr_estimators, cmr_estimators, import_estimator
-from cmr.utils.torch_utils import to_device, np_to_tensor
+from cmr.utils.torch_utils import np_to_tensor
 
 
 def estimation(model, train_data, moment_function, estimation_method,

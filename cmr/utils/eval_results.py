@@ -414,7 +414,7 @@ def plot_divergence_comparison_cmr(n_samples, kl_reg_params=None, logscale=False
     figsize = (LINE_WIDTH*.7, LINE_WIDTH*.7)
     fig, ax = plt.subplots(1, 1, figsize=figsize)
     ax = [ax]
-    labels = [rf'$\chi^2$', 'KL', 'Log']
+    labels = [r'$\chi^2$', 'KL', 'Log']
     if kl_reg_params is not None:
         labels += [f'MMD, kl_reg={kl_reg}' for kl_reg in kl_reg_params]
         labels += [f'MMD, log_reg={kl_reg}' for kl_reg in kl_reg_params]
@@ -432,7 +432,7 @@ def plot_divergence_comparison_cmr(n_samples, kl_reg_params=None, logscale=False
         n_samples = np.sort(n_samples)
         for n_train in n_samples:
             for method in methods:
-                filename = BASE_PATH / f"results/HeteroskedasticNoiseExperiment" / run_dir
+                filename = BASE_PATH / "results/HeteroskedasticNoiseExperiment" / run_dir
                 filename = filename / "HeteroskedasticNoiseExperiment_method={method}_n={n_train}.json"
                 res = load_and_summarize_results(filename)
                 mses, mmrs = res['mse_list'], res['val_loss_list']
@@ -527,7 +527,7 @@ def generate_table(n_train, test_metric='test_risk', remove_failed=False, kl_reg
 
                 results[func][method]['mean'] = np.mean(test)
                 results[func][method]['std'] = np.std(test) / np.sqrt(len(test))
-            except (FileNotFoundError, ValueError) as e:
+            except (FileNotFoundError, ValueError):
                 results[func][method]['mean'] = np.inf
                 results[func][method]['std'] = np.inf
 
@@ -572,7 +572,7 @@ def generate_table_bennet(n_trains, test_metric='test_risk', experiment='benett_
 
                 results[n_train][method]['mean'] = np.mean(test)
                 results[n_train][method]['std'] = np.std(test) / np.sqrt(len(test))
-            except (FileNotFoundError, ValueError) as e:
+            except (FileNotFoundError, ValueError):
                 results[n_train][method]['mean'] = np.inf
                 results[n_train][method]['std'] = np.inf
 

@@ -1,6 +1,4 @@
-import logging
 import numpy as np
-import matplotlib.pyplot as plt
 import keras
 from econml.iv.nnet import DeepIV as DeepIVOrig
 

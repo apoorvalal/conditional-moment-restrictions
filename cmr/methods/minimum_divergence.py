@@ -8,7 +8,7 @@ from experiments.exp_heteroskedastic import HeteroskedasticNoiseExperiment
 from cmr.methods.generalized_el import GeneralizedEL
 from cmr.utils.torch_utils import Parameter
 
-from cmr.utils.torch_utils import OptimizationError, tensor_to_np
+from cmr.utils.torch_utils import OptimizationError
 
 cvx_solver = cvx.MOSEK
 

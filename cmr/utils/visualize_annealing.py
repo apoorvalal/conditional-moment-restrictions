@@ -3,12 +3,9 @@ import torch
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-import cvxpy as cvx
 import seaborn as sns
 
 
-from cmr.methods.kmm import KMM
-from cmr.utils.torch_utils import Parameter, OptimizationError
 from cmr.utils.visualize_kel import KMMAnalysis, Model
 from cmr.utils.visualize_kel import *
 

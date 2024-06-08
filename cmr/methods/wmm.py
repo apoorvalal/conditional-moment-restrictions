@@ -6,12 +6,10 @@ import torch
 from matplotlib import pyplot as plt
 
 from cmr.estimation import estimation
-from cmr.methods.minimum_divergence import MinimumDivergence
 from experiments.exp_heteroskedastic import HeteroskedasticNoiseExperiment
 
-from cmr.methods.abstract_estimation_method import AbstractEstimationMethod
 from cmr.methods.generalized_el import GeneralizedEL
-from cmr.utils.torch_utils import OptimizationError, np_to_tensor, Parameter
+from cmr.utils.torch_utils import np_to_tensor, Parameter
 
 
 class WMM(GeneralizedEL):

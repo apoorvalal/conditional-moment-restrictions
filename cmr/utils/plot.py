@@ -198,7 +198,7 @@ def plot_divergence_comparison(n_samples, validation_metric, logscale=False, rem
     figsize = (LINE_WIDTH/1.3, LINE_WIDTH / 1.8)
     fig, ax = plt.subplots(2, 1, figsize=figsize)
 
-    labels = [rf'$\chi^2$', 'KL', 'Log']
+    labels = [r'$\chi^2$', 'KL', 'Log']
 
     for k, version in enumerate(['Kernel', 'Neural']):
         methods = [f'{version}FGEL-chi2', f'{version}FGEL-kl', f'{version}FGEL-log']
