@@ -199,3 +199,57 @@ est = create_estimator('KMM-neural', model, fn,
 ```
 
 This ensures both power users and beginners have a suitable interface.
+
+---
+
+## 8. Implementation Progress
+
+### ✅ Phase 1: COMPLETED
+- [x] GPU Support fixed - all `.cpu()` calls added before `.numpy()`
+- [x] Device handling implemented with `device='auto'` default
+- [x] All tensors properly moved to `self.device`
+
+### ✅ Phase 2: COMPLETED
+- [x] Config dataclasses created in `cmr/config.py`
+- [x] `AbstractEstimationMethod` refactored to accept `OptimizationConfig`
+- [x] Backward compatibility maintained via `**kwargs`
+
+### 🔄 Phase 3: MOSTLY DONE
+- [x] `KMMNeural` - fully refactored with `KMMConfig`, `NetworkConfig`
+- [x] `NeuralFGEL` - uses `FGELConfig`
+- [x] `GeneralizedEL` - base class uses `OptimizationConfig`
+- [x] `MMR` - config-aware
+- [x] `KernelFGEL` - config-aware
+- [x] `KernelVMM` - config-aware
+- [ ] `NeuralVMM` - partial (inherits from NeuralFGEL)
+- [ ] `OLS`, `GMM`, `GEL` - not yet in factory
+- [ ] Type hints added to some but not all methods
+
+### 🔄 Phase 4: IN PROGRESS
+- [x] Factory function `create_estimator()` created
+- [x] Smart defaults based on data size
+- [ ] All methods integrated into factory (only 6/11 done)
+- [ ] Deprecation warnings not yet added
+- [ ] Documentation not updated
+
+### 🐛 Current Bugs
+1. **SMD**: `CardinalPolynomialSplineBasis` has no `fit_transform` attribute
+2. **KMM (unconditional)**: Diverges with MSE 58923 - hyperparameter issue
+
+### 📊 Demo Results (GPU working!)
+| Method | MSE | Notes |
+|--------|-----|-------|
+| MMR | 0.185 | ✅ Best conditional method |
+| OLS | 0.275 | Biased baseline |
+| GEL | 0.969 | Works but suboptimal |
+| GMM | 2.538 | Poor performance |
+| KMM | 58923 | ❌ Diverged |
+| SMD | - | ❌ Crashes |
+
+### 🎯 Next Immediate Tasks
+1. Fix SMD basis transform bug
+2. Debug KMM unconditional hyperparameters
+3. Add OLS/GMM/GEL to factory
+4. Complete demo run successfully
+5. Add deprecation warnings
+6. Update README with new examples

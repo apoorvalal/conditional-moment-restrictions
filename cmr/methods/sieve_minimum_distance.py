@@ -22,7 +22,8 @@ class SMDIdentity(AbstractEstimationMethod):
         n_sample = x[0].shape[0]
         # Basis expansion on CPU
         z_np = z.detach().cpu().numpy() if isinstance(z, torch.Tensor) else z
-        f_z = self.basis.fit_transform(z_np)
+        self.basis.setup(z_np)
+        f_z = self.basis.basis_expansion_np(z_np)
 
         # Calculate omega_inv on CPU
         f_z_f_z = (f_z.T @ f_z) / n_sample

@@ -20,6 +20,7 @@ class KernelFGEL(GeneralizedEL):
 
     def _init_dual_params(self):
         self.dual_moment_func = Parameter(shape=(self.kernel_z.shape[0], self.dim_psi))
+        self.dual_moment_func = self.dual_moment_func.to(self.device)
         self.all_dual_params = list(self.dual_moment_func.parameters())
         # self.dual_normalization = Parameter(shape=(1, 1))
 

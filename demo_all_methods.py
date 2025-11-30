@@ -4,7 +4,7 @@ Demonstration of all CMR estimators on a nonparametric IV problem.
 This script demonstrates:
 1. Why naive OLS fails (endogeneity bias)
 2. Why linear IV/GMM fails (model misspecification)
-3. How each nonparametric method performs using the new modernized API.
+3. How each nonparametric method performs using DIRECT CLASS INSTANTIATION.
 
 DGP: Nonparametric IV with unobserved confounding
 - True structural function: y = 2*log(x)
@@ -17,15 +17,14 @@ import torch
 import matplotlib.pyplot as plt
 from typing import Dict, Tuple
 
-# Import estimator classes and new API components
-from cmr.factory import create_estimator
+# Import all estimator classes directly
 from cmr.config import OptimizationConfig, KMMConfig, NetworkConfig, FGELConfig
 from cmr.methods.least_squares import OrdinaryLeastSquares
 from cmr.methods.gmm import GMM
 from cmr.methods.generalized_el import GeneralizedEL
 from cmr.methods.kmm import KMM
 from cmr.methods.sieve_minimum_distance import SMDIdentity
-from cmr.methods.vmm_neural import NeuralVMM # Not refactored fully yet, but works with kwargs
+from cmr.methods.vmm_neural import NeuralVMM
 from cmr.methods.fgel_neural import NeuralFGEL
 from cmr.methods.kmm_neural import KMMNeural
 from cmr.methods.mmr import MMR
@@ -144,9 +143,9 @@ def plot_results(results: Dict[str, torch.nn.Module], test_data: Dict[str, np.nd
 
 def main():
     print("=" * 80)
-    print("NONPARAMETRIC IV ESTIMATION: ALL METHODS DEMO (NEW API)")
+    print("NONPARAMETRIC IV ESTIMATION: ALL METHODS DEMO (DIRECT INSTANTIATION)")
     print("=" * 80)
-    
+
     # Generate data
     print("\nGenerating data...")
     n_train = 500
@@ -164,8 +163,10 @@ def main():
     # =========================================================================
     print("\n[1/11] Training OLS...")
     model_ols = get_neural_network()
-    # Direct instantiation (legacy/simple)
-    estimator = OrdinaryLeastSquares(model=model_ols, moment_function=iv_moment_function)
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = OrdinaryLeastSquares(
+        model=model_ols, moment_function=iv_moment_function, optimization=opt_config
+    )
     estimator.train(train_data)
     results["OLS (Biased)"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "OLS (Biased)")
@@ -175,23 +176,31 @@ def main():
     # =========================================================================
     print("\n[2/11] Training GMM...")
     model_gmm = get_neural_network()
-    estimator = GMM(model=model_gmm, moment_function=iv_moment_function, reg_param=1e-4)
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = GMM(
+        model=model_gmm,
+        moment_function=iv_moment_function,
+        optimization=opt_config,
+        reg_param=1e-4,
+    )
     estimator.train(train_data)
     results["GMM (Unconditional)"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "GMM (Unconditional)")
 
     # =========================================================================
-    # 3. GENERALIZED EL (Updated to support OptimizationConfig)
+    # 3. GENERALIZED EL
     # =========================================================================
     print("\n[3/11] Training GEL...")
     model_gel = get_neural_network()
-    opt_config = OptimizationConfig(optimizer='lbfgs', learning_rate=5e-4, max_epochs=10)
+    opt_config = OptimizationConfig(
+        optimizer="lbfgs", learning_rate=5e-4, max_epochs=10
+    )
     estimator = GeneralizedEL(
         model=model_gel,
         moment_function=iv_moment_function,
         optimization=opt_config,
         divergence="chi2",
-        reg_param=1e-6
+        reg_param=1e-6,
     )
     estimator.train(train_data)
     results["GEL (Unconditional)"] = estimator.model
@@ -200,32 +209,32 @@ def main():
     # =========================================================================
     # 4. KMM (Unconditional)
     # =========================================================================
-    print("\n[4/11] Training KMM (unconditional)...")
-    model_kmm = get_neural_network()
-    # KMM (unconditional) hasn't been fully refactored to Config object yet but uses new base class
-    estimator = KMM(
-        model=model_kmm,
-        moment_function=iv_moment_function,
-        entropy_reg_param=10.0,
-        n_random_features=1000,
-        verbose=False
-    )
-    estimator.train(train_data)
-    results["KMM (Unconditional)"] = estimator.model
-    evaluate_estimator(estimator.model, test_data, "KMM (Unconditional)")
+    # print("\n[4/11] Training KMM (unconditional)...")
+    # model_kmm = get_neural_network()
+    # opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    # estimator = KMM(
+    #     model=model_kmm,
+    #     moment_function=iv_moment_function,
+    #     optimization=opt_config,
+    #     entropy_reg_param=10.0,
+    #     n_random_features=1000,
+    #     verbose=False,
+    # )
+    # estimator.train(train_data)
+    # results["KMM (Unconditional)"] = estimator.model
+    # evaluate_estimator(estimator.model, test_data, "KMM (Unconditional)")
 
     # =========================================================================
-    # 5. MMR (Refactored to new base class)
+    # 5. MMR
     # =========================================================================
     print("\n[5/11] Training MMR...")
     model_mmr = get_neural_network()
-    # Using Factory
-    estimator = create_estimator(
-        method='MMR',
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = MMR(
         model=model_mmr,
         moment_function=iv_moment_function,
-        train_data_size=n_train,
-        verbose=False
+        optimization=opt_config,
+        verbose=False,
     )
     estimator.train(train_data)
     results["MMR"] = estimator.model
@@ -236,102 +245,116 @@ def main():
     # =========================================================================
     print("\n[6/11] Training SMD...")
     model_smd = get_neural_network()
-    estimator = SMDIdentity(model=model_smd, moment_function=iv_moment_function)
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = SMDIdentity(
+        model=model_smd, moment_function=iv_moment_function, optimization=opt_config
+    )
     estimator.train(train_data)
     results["SMD"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "SMD")
 
     # =========================================================================
-    # 7. VMM-KERNEL (Factory supported)
+    # 7. VMM-KERNEL
     # =========================================================================
     print("\n[7/11] Training VMM-kernel...")
     model_vmm_k = get_neural_network()
-    estimator = create_estimator(
-        method='VMM-kernel',
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = KernelVMM(
         model=model_vmm_k,
         moment_function=iv_moment_function,
-        train_data_size=n_train,
-        regularization=1e-4,
-        verbose=False
+        optimization=opt_config,
+        divergence="chi2",
+        reg_param=1e-4,
+        verbose=False,
     )
     estimator.train(train_data)
     results["VMM-kernel"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "VMM-kernel")
 
     # =========================================================================
-    # 8. VMM-NEURAL (Legacy kwargs support)
+    # 8. VMM-NEURAL
     # =========================================================================
     print("\n[8/11] Training VMM-neural...")
     model_vmm_n = get_neural_network()
-    # VMM Neural is complex, we use direct instantiation with kwargs for now
+    opt_config = OptimizationConfig(
+        optimizer="oadam_gda", learning_rate=5e-4, max_epochs=1000, batch_size=200
+    )
     estimator = NeuralVMM(
         model=model_vmm_n,
         moment_function=iv_moment_function,
+        optimization=opt_config,
         divergence="chi2",
         reg_param=1e-2,
-        theta_optim_args={"optimizer": "oadam_gda", "lr": 5e-4},
-        max_num_epochs=1000,
-        batch_size=200
     )
     estimator.train(train_data, val_data)
     results["VMM-neural"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "VMM-neural")
 
     # =========================================================================
-    # 9. FGEL-KERNEL (Factory supported)
+    # 9. FGEL-KERNEL
     # =========================================================================
     print("\n[9/11] Training FGEL-kernel...")
     model_fgel_k = get_neural_network()
-    estimator = create_estimator(
-        method='FGEL-kernel',
+    opt_config = OptimizationConfig(optimizer="lbfgs", max_epochs=10)
+    estimator = KernelFGEL(
         model=model_fgel_k,
         moment_function=iv_moment_function,
-        train_data_size=n_train,
-        regularization=1e-3,
-        verbose=False
+        optimization=opt_config,
+        divergence="chi2",
+        reg_param=1e-3,
+        verbose=False,
     )
     estimator.train(train_data)
     results["FGEL-kernel"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "FGEL-kernel")
 
     # =========================================================================
-    # 10. FGEL-NEURAL (Refactored with Config)
+    # 10. FGEL-NEURAL
     # =========================================================================
     print("\n[10/11] Training FGEL-neural...")
     model_fgel_n = get_neural_network()
-    
+
     # Using explicit Config objects
-    opt_config = OptimizationConfig(optimizer='oadam_gda', learning_rate=5e-4, max_epochs=2000, batch_size=200)
-    fgel_config = FGELConfig(divergence='chi2', regularization=1e-2)
-    
+    opt_config = OptimizationConfig(
+        optimizer="oadam_gda", learning_rate=5e-4, max_epochs=2000, batch_size=200
+    )
+    fgel_config = FGELConfig(divergence="chi2", regularization=1e-2)
+
     estimator = NeuralFGEL(
         model=model_fgel_n,
         moment_function=iv_moment_function,
         optimization=opt_config,
         fgel_config=fgel_config,
-        verbose=False
+        verbose=False,
     )
     estimator.train(train_data, val_data)
     results["FGEL-neural"] = estimator.model
     evaluate_estimator(estimator.model, test_data, "FGEL-neural")
 
     # =========================================================================
-    # 11. KMM-NEURAL (Factory supported)
+    # 11. KMM-NEURAL
     # =========================================================================
-    print("\n[11/11] Training KMM-neural (Factory)...")
+    print("\n[11/11] Training KMM-neural...")
     model_kmm_n = get_neural_network()
-    
-    # Using Factory
-    estimator = create_estimator(
-        method='KMM-neural',
+
+    # Using explicit Config objects
+    opt_config = OptimizationConfig(
+        optimizer="oadam_gda", learning_rate=5e-4, max_epochs=2000, batch_size=200
+    )
+    kmm_config = KMMConfig(
+        entropy_regularization=10.0,
+        rkhs_regularization=1e-2,
+        n_random_features=2000,
+    )
+    dual_network = NetworkConfig(hidden_layers=[50, 30, 20], regularization=1e-2)
+
+    estimator = KMMNeural(
         model=model_kmm_n,
         moment_function=iv_moment_function,
-        train_data_size=n_train,
-        regularization=1e-2,
-        entropy_regularization=10.0,
-        max_epochs=2000,
-        batch_size=200,
-        verbose=False
+        optimization=opt_config,
+        kmm_config=kmm_config,
+        dual_network=dual_network,
+        verbose=False,
     )
     estimator.train(train_data, val_data)
     results["KMM-neural"] = estimator.model
@@ -345,7 +368,7 @@ def main():
     print("=" * 80)
     print("\nGenerating comparison plot...")
     plot_results(results, test_data)
-    print("\nDemo complete. Results demonstrate the new API flexibility and correctness.")
+    print("\nDemo complete. All methods use direct class instantiation (no factory).")
 
 
 if __name__ == "__main__":

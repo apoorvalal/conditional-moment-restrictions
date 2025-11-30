@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python:*)",
+      "Bash(python demo_all_methods.py:*)",
+      "Bash(source .venv/bin/activate)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

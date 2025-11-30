@@ -17,11 +17,11 @@ class NeuralFGEL(GeneralizedEL):
     ):
         self.fgel_config = fgel_config or FGELConfig()
 
-        # Map legacy kwargs
+        # Map legacy kwargs and remove them to avoid duplicate arguments
         if "divergence" in kwargs:
-            self.fgel_config.divergence = kwargs["divergence"]
+            self.fgel_config.divergence = kwargs.pop("divergence")
         if "reg_param" in kwargs:
-            self.fgel_config.regularization = kwargs["reg_param"]
+            self.fgel_config.regularization = kwargs.pop("reg_param")
 
         super().__init__(
             model=model,

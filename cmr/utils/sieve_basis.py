@@ -19,6 +19,9 @@ class AbstractBasis(object):
     def basis_expansion_np(self, z):
         basis_functions = self.get_basis_functions()
         outputs = np.stack([b(z) for b in basis_functions], axis=1)
+        # Squeeze last dimension if needed (n, n_basis, 1) -> (n, n_basis)
+        if outputs.ndim == 3 and outputs.shape[-1] == 1:
+            outputs = outputs.squeeze(-1)
         return outputs
 
     def basis_expansion_torch(self, z):
