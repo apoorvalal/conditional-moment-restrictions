@@ -1,6 +1,7 @@
 ---
-title: 'Mathematical Exposition: Conditional Moment Restrictions Library'
+title: 'Mathematical Background: Conditional Moment Conditions'
 geometry: margin=1in
+documentclass: scrartcl
 ---
 
 ## 1. Problem Formulation
@@ -25,6 +26,7 @@ where:
 ### 1.2 Instrumental Variable Regression
 
 The canonical application is **instrumental variable (IV) regression**, where:
+
 - We seek to estimate a structural function $f_\theta: \mathcal{X} \to \mathcal{Y}$
 - The moment function takes the form: $\psi(X, Y; \theta) = f_\theta(X) - Y$
 - The CMR becomes: $\mathbb{E}[f_\theta(X) - Y \mid Z] = 0$
@@ -37,7 +39,9 @@ This problem arises when:
   2. **Exclusion**: $Z$ affects $Y$ only through $X$
   3. **Exogeneity**: $Z$ is independent of $U$
 
-The causal structure is: $Z \to X \leftarrow U \to Y \leftarrow X$
+The causal structure is 
+
+![](iv_image.jpg)
 
 ### 1.3 Unconditional Moment Restrictions
 
@@ -55,111 +59,41 @@ This is a special case where $Z$ is trivial or integrated out.
 
 ### 2.1 Dual Formulation via f-Divergences
 
-Many estimators in this library are based on **generalized empirical likelihood (GEL)** formulations using f-divergences.
+The estimators in this library are best understood through the lens of **Generalized Empirical Likelihood (GEL)**, which formulates estimation as a constrained optimization problem on the space of probability measures.
 
-#### 2.1.1 f-Divergences
+#### 2.1.1 The Primal Problem: Constrained Optimization
 
-For probability measures $P$ and $Q$ with $P \ll Q$, the f-divergence is:
-
-$$
-D_f(P \| Q) = \int f\left(\frac{dP}{dQ}\right) dQ
-$$
-
-where $f: \mathbb{R}_+ \to \mathbb{R}$ is convex with $f(1) = 0$.
-
-The **Fenchel conjugate** of $f$ is:
-$$
-f^*(t) = \sup_{u \in \mathbb{R}_+} \{tu - f(u)\}
-$$
-
-Common f-divergences:
-
-- **KL divergence**: $f(u) = u \log u$, so $f^*(t) = e^t$
-- **Chi-squared**: $f(u) = (u-1)^2$, so $f^*(t) = \frac{1}{2}(t+1)^2$
-- **Log divergence**: $f(u) = -\log u$, so $f^*(t) = -\log(1-t)$ for $t < 1$
-
-#### 2.1.2 GEL Estimator (Unconditional)
-
-For unconditional MR, the GEL estimator solves:
+Consider the unconditional moment restriction $\mathbb{E}[\psi(X, Y; \theta)] = 0$.
+The classical **Empirical Likelihood (EL)** estimator seeks a discrete probability distribution $p = (p_1, \dots, p_n)$ supported on the sample points that maximizes the likelihood (or equivalently minimizes the negative log-likelihood) subject to the moment constraints holding under $p$:
 
 $$
-\min_{\theta \in \Theta} \sup_{\lambda \in \mathbb{R}^k} \left\{ \frac{1}{n}\sum_{i=1}^n f^*(\lambda^\top \psi(x_i, y_i; \theta)) \right\}
+\begin{aligned}
+\min_{p \in \mathbb{R}^n} \quad & \sum_{i=1}^n -\log(n p_i) \\
+\text{subject to} \quad & \sum_{i=1}^n p_i \psi(x_i, y_i; \theta) = 0 \\
+& \sum_{i=1}^n p_i = 1, \quad p_i \geq 0
+\end{aligned}
 $$
 
-where $\lambda$ are dual variables (Lagrange multipliers). This generalizes:
+**The Parameter Explosion Problem**:
+The primal problem attempts to estimate $n$ parameters (the weights $p_i$) plus the parameters of interest $\theta$. As $n \to \infty$, the number of nuisance parameters grows with the sample size, making direct optimization computationally infeasible and statistically challenging ("Neyman-Scott problem").
 
-- **GMM**: $f^*(t) = -\frac{1}{2}t^2$ (quadratic)
-- **Empirical Likelihood**: $f^*(t) = -\log(1-t)$
-- **Exponential Tilting (ET)**: $f^*(t) = e^t$
-- **Continuous Updating GMM (CUE)**: $f^*(t) = \frac{1}{2}(t+1)^2$
+#### 2.1.2 The Dual Solution: Saddle Point Formulation
 
-### 2.2 Reproducing Kernel Hilbert Spaces (RKHS)
-
-For conditional moment restrictions, we parameterize the dual functions as elements of an RKHS.
-
-#### 2.2.1 RKHS Basics
-
-Let $\mathcal{H}$ be an RKHS of functions $h: \mathcal{Z} \to \mathbb{R}$ with kernel $k: \mathcal{Z} \times \mathcal{Z} \to \mathbb{R}$.
-
-**Reproducing property**: For any $h \in \mathcal{H}$ and $z \in \mathcal{Z}$:
-$$
-h(z) = \langle h, k(z, \cdot) \rangle_{\mathcal{H}}
-$$
-
-**Representer theorem**: For finite sample problems, the solution has the form:
-$$
-h^*(z) = \sum_{i=1}^n \alpha_i k(z, z_i)
-$$
-
-for some coefficients $\alpha_i \in \mathbb{R}$.
-
-#### 2.2.2 Vector-Valued RKHS
-
-For $k$-dimensional moment functions, we use the vector-valued RKHS:
-$$
-\mathcal{H}^k = \underbrace{\mathcal{H} \times \cdots \times \mathcal{H}}_{k \text{ times}}
-$$
-
-with norm $\|\boldsymbol{h}\|_{\mathcal{H}^k}^2 = \sum_{j=1}^k \|h_j\|_{\mathcal{H}}^2$ for $\boldsymbol{h} = (h_1, \ldots, h_k)$.
-
-#### 2.2.3 RBF Kernel
-
-The library uses the **radial basis function (RBF) kernel**:
-$$
-k(z, z') = \exp\left(-\frac{\|z - z'\|^2}{2\sigma^2}\right)
-$$
-
-where $\sigma > 0$ is the bandwidth (automatically selected via median heuristic).
-
-### 2.3 Maximum Mean Discrepancy (MMD)
-
-The **MMD** between distributions $P$ and $Q$ with respect to kernel $k$ is:
+To avoid this explosion, we use convex duality. This generalizes beyond EL to the class of **f-divergences**.
+For a convex function $f: \mathbb{R}_+ \to \mathbb{R}$ with $f(1)=0$, we minimize the divergence between $p$ and the uniform distribution $u_n = (1/n, \dots, 1/n)$:
 
 $$
-\text{MMD}^2(P, Q) = \mathbb{E}_{p, p'}[k(p, p')] - 2\mathbb{E}_{p, q}[k(p, q)] + \mathbb{E}_{q, q'}[k(q, q')]
+\min_{p \in \Delta_n} \sum_{i=1}^n \frac{1}{n} f\left(n p_i\right) \quad \text{s.t.} \quad \mathbb{E}_p[\psi(\theta)] = 0
 $$
 
-Empirically, with samples $\{p_i\}_{i=1}^n \sim P$ and $\{q_j\}_{j=1}^m \sim Q$:
+By introducing Lagrange multipliers $\lambda \in \mathbb{R}^k$ for the moment constraints and using the Fenchel conjugate $f^*(t) = \sup_{u} \{tu - f(u)\}$, the problem converts to a dual formulation that depends only on $\lambda$ and $\theta$.
+This reduces the dimensionality from $O(n)$ to $O(k)$, leading to the **Generalized Empirical Likelihood (GEL)** saddle-point objective:
 
 $$
-\widehat{\text{MMD}}^2 = \frac{1}{n^2}\sum_{i,i'}K_{ii'} - \frac{2}{nm}\sum_{i,j}K_{ij}^{pq} + \frac{1}{m^2}\sum_{j,j'}K_{jj'}^q
+\min_{\theta \in \Theta} \sup_{\lambda \in \mathbb{R}^k} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(\lambda^\top \psi(x_i, y_i; \theta)) \right\}
 $$
 
-### 2.4 Random Fourier Features (RFF)
-
-For scalability, kernels are approximated using **random Fourier features**.
-
-For the RBF kernel, draw $\omega_1, \ldots, \omega_D \sim \mathcal{N}(0, \sigma^{-2}I)$ and define:
-$$
-\phi(z) = \sqrt{\frac{2}{D}} \left[\cos(\omega_1^\top z), \sin(\omega_1^\top z), \ldots, \cos(\omega_D^\top z), \sin(\omega_D^\top z)\right]^\top
-$$
-
-Then $k(z, z') \approx \phi(z)^\top \phi(z')$ and the RKHS function becomes:
-$$
-h(z) = \beta^\top \phi(z)
-$$
-
-for $\beta \in \mathbb{R}^{2D}$, reducing the problem from $O(n^2)$ to $O(nD)$ complexity.
+This formulation is computationally efficient ($k$ is fixed) and forms the basis for the modern machine learning approaches (VMM, FGEL, KMM) used in this library, which generalize $\lambda$ from a vector to a function $h(Z)$.
 
 ---
 
@@ -198,21 +132,35 @@ where:
 
 #### 3.1.3 Generalized Empirical Likelihood (GEL)
 
-**Primal-dual formulation**:
+The library implements the dual formulation derived in Section 2.1.
+
+**Saddle-Point Objective**:
 $$
-\min_{\theta \in \Theta} \max_{\lambda \in \mathbb{R}^k} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(\lambda^\top \psi_i(\theta)) - \alpha\|\lambda\|^2 \right\}
+\min_{\theta \in \Theta} \max_{\lambda \in \mathbb{R}^k} \mathcal{L}_{GEL}(\theta, \lambda) = \min_{\theta \in \Theta} \max_{\lambda \in \mathbb{R}^k} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(\lambda^\top \psi_i(\theta)) - \alpha\|\lambda\|^2 \right\}
 $$
 
-**Variants** (via `divergence` parameter):
+**Supported Divergences**:
 
-- `'chi2'`: Chi-squared divergence, $f^*(t) = \frac{1}{2}(t+1)^2$
-- `'kl'`: KL divergence, $f^*(t) = e^t$
-- `'log'`: Log divergence, $f^*(t) = -\log(1-t)$ with constraint $t < 1$
+1.  **Chi-squared (Euclidean EL)**:
+    *   Primal: Minimize $\sum (np_i - 1)^2$.
+    *   Dual Conjugate: $f^*(t) = \frac{1}{2}(t+1)^2$.
+    *   Connection: Closely related to Continuous Updating GMM (CUE).
+    *   Code: `divergence='chi2'`
 
-**Parameters**:
+2.  **Kullback-Leibler (Exponential Tilting)**:
+    *   Primal: Minimize $\sum p_i \log(np_i)$.
+    *   Dual Conjugate: $f^*(t) = e^t$.
+    *   Properties: Often more stable than EL; weights are strictly positive.
+    *   Code: `divergence='kl'`
 
-- `divergence`: Choice of f-divergence
-- `reg_param`: Regularization parameter $\alpha \geq 0$
+3.  **Log-Euclidean (Empirical Likelihood)**:
+    *   Primal: Maximize $\sum \log(np_i)$.
+    *   Dual Conjugate: $f^*(t) = -\log(1-t)$.
+    *   Constraint: Requires $\lambda^\top \psi_i < 1$ for all $i$.
+    *   Code: `divergence='log'`
+
+**Implementation**:
+The `GeneralizedEL` class handles the optimization. The inner maximization over $\lambda$ is solved via Newton's method (if `optim='lbfgs'`) or gradient ascent, while the outer minimization over $\theta$ uses the chosen optimizer (e.g., Adam, OAdam).
 
 #### 3.1.4 Kernel Method of Moments (KMM)
 
@@ -248,6 +196,8 @@ where:
 - `kde_bandwidth`: Bandwidth for KDE
 
 ### 3.2 Conditional Moment Restrictions
+
+The modern methods below generalize the GEL principle to **conditional** restrictions $\mathbb{E}[\psi \mid Z]=0$. Instead of a single vector $\lambda$, we now learn a **function** of the instruments, effectively performing an "infinite" number of moment checks or learning the "optimal instrument" in a data-driven way.
 
 #### 3.2.1 Maximum Moment Restrictions (MMR)
 
@@ -292,89 +242,58 @@ $$
 
 #### 3.2.3 Variational Method of Moments (VMM)
 
+VMM generalizes GMM by replacing the fixed weighting matrix with a **learned instrument function** $h(Z)$ in an RKHS.
+
+**The Adversarial Game**:
+Instead of minimizing a static quadratic form, VMM solves a minimax game where an "adversary" $h$ tries to maximize the correlation with the moment violations, while the model $\theta$ tries to minimize it.
+
 **Kernel Version (VMM-kernel)**:
-
-Solves the saddle-point problem:
+The adversary is a function in a vector-valued RKHS $\mathcal{H}^k$. The objective simplifies analytically to:
 $$
-\min_{\theta} \max_{\boldsymbol{h} \in \mathcal{H}^k} \left\{ \frac{2}{n}\sum_{i=1}^n \psi(x_i, y_i; \theta)^\top \boldsymbol{h}(z_i) - \boldsymbol{h}^\top M \boldsymbol{h} \right\}
+\min_{\theta} \max_{\boldsymbol{h} \in \mathcal{H}^k} \left\{ \frac{2}{n}\sum_{i=1}^n \psi(x_i, y_i; \theta)^\top \boldsymbol{h}(z_i) - \|\boldsymbol{h}\|_{\mathcal{H}^k}^2 \right\}
 $$
-
-where $M$ is a block-diagonal matrix with blocks $M_j = K^Z(K^Z K^Z + \alpha I)^{-1}K^Z$ for $j=1,\ldots,k$.
+This leads to a closed-form solution for the optimal $h$, resulting in a generalized quadratic form involving the kernel matrix inverse:
+$$
+\min_\theta \psi(\theta)^\top K^Z (K^Z K^Z + \alpha I)^{-1} K^Z \psi(\theta)
+$$
 
 **Neural Version (VMM-neural)**:
-
-Parameterizes $\boldsymbol{h}(z) = g_\phi(z)$ where $g_\phi$ is a neural network, leading to:
+Here, the adversary is a neural network $g_\phi(z)$. This recovers the **DeepGMM** method.
 $$
-\min_{\theta} \max_{\phi} \left\{ \frac{2}{n}\sum_{i=1}^n \psi(x_i, y_i; \theta)^\top g_\phi(z_i) - \frac{1}{n^2}\sum_{i,j} g_\phi(z_i)^\top K^Z_{ij} g_\phi(z_j) - \alpha\|g_\phi\|^2 \right\}
+\min_{\theta} \max_{\phi} \left\{ \frac{2}{n}\sum_{i=1}^n \psi(\theta)^\top g_\phi(z) - \mathbb{E}[g_\phi(z)^\top g_\phi(z)] \right\}
 $$
-
-**Parameters**:
-
-- `reg_param`: Regularization parameter $\alpha$
-- `num_iter`: Number of alternating minimization iterations
-
-**Relation to DeepGMM**: VMM-neural with specific settings is equivalent to DeepGMM.
 
 #### 3.2.4 Functional Generalized Empirical Likelihood (FGEL)
 
-**Kernel Version (FGEL-kernel)**:
+FGEL is the direct conditional generalization of GEL. It replaces the vector $\lambda$ in the GEL objective with a function $h(Z)$.
 
-Extends GEL to conditional setting using RKHS dual functions:
+**The Concept**:
+We seek the "worst-case" re-weighting of the data (defined by $h(Z)$) that satisfies the conditional moment restrictions. The f-divergence acts as a regularizer on this re-weighting.
 
+**Objective**:
 $$
-\min_{\theta} \max_{\boldsymbol{h} \in \mathcal{H}^k} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(\boldsymbol{h}(z_i)^\top \psi(x_i, y_i; \theta)) - \frac{\alpha}{2}\|\boldsymbol{h}\|_{\mathcal{H}^k}^2 \right\}
-$$
-
-By representer theorem, $\boldsymbol{h}(z) = \sum_{i=1}^n A_i k(z, z_i)$ for $A_i \in \mathbb{R}^k$.
-
-**Objective in matrix form**:
-$$
-\max_{A \in \mathbb{R}^{n \times k}} \left\{ \frac{1}{n}\sum_{i=1}^n f^*\left(\sum_{j=1}^n K^Z_{ij} A_j^\top \psi(x_i, y_i; \theta)\right) - \frac{\alpha}{2}\text{tr}(A^\top K^Z A) \right\}
+\min_{\theta} \max_{h \in \mathcal{H}} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(h(z_i)^\top \psi(x_i, y_i; \theta)) - \frac{\alpha}{2}\|h\|_{\mathcal{H}}^2 \right\}
 $$
 
-**Neural Version (FGEL-neural)**:
+**Kernel vs. Neural**:
 
-Replaces RKHS function with neural network $g_\phi: \mathcal{Z} \to \mathbb{R}^k$:
-
-$$
-\min_{\theta} \max_{\phi} \left\{ -\frac{1}{n}\sum_{i=1}^n f^*(g_\phi(z_i)^\top \psi(x_i, y_i; \theta)) - \alpha \|g_\phi\|^2 \right\}
-$$
-
-where $\|g_\phi\|^2 = \frac{1}{n}\sum_{i=1}^n \|g_\phi(z_i)\|^2$ is the empirical L2 norm.
-
-**Parameters**:
-
-- `divergence`: Type of f-divergence ('chi2', 'kl', 'log')
-- `reg_param`: RKHS/neural network regularization $\alpha$
-- `dual_func_network_kwargs`: Architecture for neural dual function (neural version)
+*   **FGEL-kernel**: $h$ lies in an RKHS. By the representer theorem, $h(z) = \sum \alpha_i k(z, z_i)$, reducing the problem to finding coefficients $\alpha_i$.
+*   **FGEL-neural**: $h$ is parametrized by a neural network. This allows for scalable estimation with large datasets where the kernel matrix would be too large to invert.
 
 #### 3.2.5 Kernel Method of Moments - Neural (KMM-neural)
 
-Combines MMD-based objective with neural network instrument function:
+KMM-neural combines the Maximum Mean Discrepancy (MMD) principle with neural network test functions.
 
+**The Logic**:
+It minimizes the MMD between the model distribution and a reference distribution, where the "test function" for the MMD is learned adversarially to detect moment violations.
+
+**Objective**:
 $$
-\min_{\theta} \max_{\nu, c, h} \left\{ \frac{1}{n}\sum_{i=1}^n h_\beta(\phi(x_i, y_i, z_i)) + c - \gamma \mathbb{E}_{Q}\left[f^*\left(\frac{1}{\gamma}(h + c - \nu_\phi(z)^\top \psi(\theta))\right)\right] - \frac{\lambda}{2}\|\beta\|^2 \right\}
+\min_{\theta} \max_{\nu, c, h} \left\{ \mathbb{E}_P[h] + c - \gamma \mathbb{E}_{Q}\left[f^*\left(\frac{1}{\gamma}(h + c - \nu_\phi(z)^\top \psi(\theta))\right)\right] - \text{Reg}(h, \nu) \right\}
 $$
 
-where:
-- $h_\beta(u) = \beta^\top \phi(x, y, z)$ with $\phi$ being RFF of product kernel
-- $\nu_\phi(z)$ is a neural network mapping $z \mapsto \mathbb{R}^k$
-- Reference samples are drawn from KDE on joint distribution
-
-**Key differences from FGEL-neural**:
-
-- Uses MMD/entropy regularization instead of pure f-divergence
-- Employs reference distribution for better sample efficiency
-- Has RKHS function on full $(X,Y,Z)$ space plus neural function on $Z$
-
-**Parameters**:
-
-- `entropy_reg_param`: Entropy regularization $\gamma$
-- `reg_param`: Neural network regularization
-- `rkhs_reg_param`: RKHS regularization $\lambda$
-- `n_random_features`: RFF dimension for $h$
-- `n_reference_samples`: Samples from reference distribution
-- `dual_func_network_kwargs`: Neural network architecture for $\nu_\phi$
+**Key Innovation**:
+Unlike FGEL which effectively reweights the *empirical* distribution, KMM introduces a reference distribution $Q$ (e.g., from a Kernel Density Estimate). This stabilizes training and provides better finite-sample performance by ensuring the solution stays close to the data manifold. It uses **Random Fourier Features (RFF)** to scale the RKHS components to large datasets.
 
 ---
 

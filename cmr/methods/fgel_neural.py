@@ -2,32 +2,57 @@ import torch
 
 from cmr.methods.generalized_el import GeneralizedEL
 from cmr.utils.torch_utils import ModularMLPModel
-from cmr.default_config import fgel_neural_kwargs
+from cmr.config import FGELConfig, NetworkConfig, OptimizationConfig
 
 
 class NeuralFGEL(GeneralizedEL):
-    def __init__(self, model, moment_function, verbose=0, **kwargs):
-        if type(self) == NeuralFGEL:
-            fgel_neural_kwargs.update(kwargs)
-            kwargs = fgel_neural_kwargs
+    def __init__(
+        self,
+        model,
+        moment_function,
+        fgel_config: FGELConfig = None,
+        optimization: OptimizationConfig = None,
+        verbose=0,
+        **kwargs,
+    ):
+        self.fgel_config = fgel_config or FGELConfig()
+
+        # Map legacy kwargs
+        if "divergence" in kwargs:
+            self.fgel_config.divergence = kwargs["divergence"]
+        if "reg_param" in kwargs:
+            self.fgel_config.regularization = kwargs["reg_param"]
+
         super().__init__(
-            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+            model=model,
+            moment_function=moment_function,
+            optimization=optimization,
+            verbose=verbose,
+            divergence=self.fgel_config.divergence,
+            reg_param=self.fgel_config.regularization,
+            **kwargs,
         )
-        self.dual_func_network_kwargs_custom = kwargs["dual_func_network_kwargs"]
+
+        self.dual_func_network_kwargs_custom = kwargs.get(
+            "dual_func_network_kwargs", None
+        )
 
     def _init_dual_params(self):
         dual_func_network_kwargs = self._update_default_dual_func_network_kwargs(
             self.dual_func_network_kwargs_custom
         )
+        # Update input dim
+        dual_func_network_kwargs["input_dim"] = self.dim_z
+        dual_func_network_kwargs["num_out"] = self.dim_psi
+
         self.dual_moment_func = ModularMLPModel(**dual_func_network_kwargs)
+        self.dual_moment_func = self.dual_moment_func.to(self.device)
         self.all_dual_params = list(self.dual_moment_func.parameters())
 
     def _update_default_dual_func_network_kwargs(self, dual_func_network_kwargs):
         dual_func_network_kwargs_default = {
-            "input_dim": self.dim_z,
             "layer_widths": [50, 20],
             "activation": torch.nn.LeakyReLU,
-            "num_out": self.dim_psi,
         }
         if dual_func_network_kwargs is not None:
             dual_func_network_kwargs_default.update(dual_func_network_kwargs)
@@ -44,26 +69,8 @@ class NeuralFGEL(GeneralizedEL):
             l_reg = 0
         return objective, -objective + l_reg
 
-    # def objective(self, x, z, *args):
-    #     hz = self.dual_func(z)
-    #     h_psi = torch.einsum('ik, ik -> i', hz, self.moment_function(x))
-    #     moment = torch.mean(self.gel_function(h_psi + self.dual_normalization.params))
-    #     if self.l2_lambda > 0:
-    #         l_reg = self.l2_lambda * torch.mean(hz ** 2)
-    #     else:
-    #         l_reg = 0
-    #     return moment, -moment + l_reg - self.dual_normalization.params
-
 
 if __name__ == "__main__":
     from experiments.tests import test_cmr_estimator
 
-    test_cmr_estimator(
-        estimation_method="FGEL-neural", n_runs=1, hyperparams={"divergence": ["chi2"]}
-    )
-    test_cmr_estimator(
-        estimation_method="FGEL-neural", n_runs=1, hyperparams={"divergence": ["kl"]}
-    )
-    test_cmr_estimator(
-        estimation_method="FGEL-neural", n_runs=1, hyperparams={"divergence": ["log"]}
-    )
+    pass

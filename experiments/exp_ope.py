@@ -11,15 +11,15 @@ from experiments.abstract_experiment import AbstractExperiment
 from cmr.estimation import estimation
 
 
-def setup_model(env_name, algo, policy='behavioral'):
+def setup_model(env_name, algo, policy="behavioral"):
     """"""
-    algo_file = Path(__file__).parent / 'ope_data/{}.yml'.format(algo)
-    algo_param = yaml.load(algo_file.open('r+'), Loader=yaml.loader.SafeLoader)
+    algo_file = Path(__file__).parent / "ope_data/{}.yml".format(algo)
+    algo_param = yaml.load(algo_file.open("r+"), Loader=yaml.loader.SafeLoader)
     env_param = algo_param[env_name]
-    _, _ = env_param.pop('n_timesteps'), env_param.pop('n_envs')
+    _, _ = env_param.pop("n_timesteps"), env_param.pop("n_envs")
 
     env = gym.make(env_name)
-    model = PPO(env_param.pop('policy'), env, verbose=1, **env_param)
+    model = PPO(env_param.pop("policy"), env, verbose=1, **env_param)
     data_dir = Path(__file__).parent / "ope_data"
     model.load(data_dir / "OPE_{}_{}.zip".format(algo, policy))
     return model, env
@@ -104,10 +104,9 @@ class DensityModel(nn.Module):
         """
         if not isinstance(t, torch.Tensor):
             t = torch.from_numpy(t)
-        s1 = t[:, :self.in_dim]
-        s2 = t[:, self.in_dim:]
-        density_ratios = [self.relu_stack(s1),
-                          self.relu_stack(s2)]
+        s1 = t[:, : self.in_dim]
+        s2 = t[:, self.in_dim :]
+        density_ratios = [self.relu_stack(s1), self.relu_stack(s2)]
         return torch.vstack(density_ratios)
 
     def initialize(self):
@@ -116,8 +115,9 @@ class DensityModel(nn.Module):
 
 class OffPolicyEvaluationExperiment(AbstractExperiment):
     def __init__(self, env_name, algorithm, rollout_len=200):
-        self.pi_b, self.pi_t, self.env = self._load_policies(env_name=env_name,
-                                                             algo=algorithm)
+        self.pi_b, self.pi_t, self.env = self._load_policies(
+            env_name=env_name, algo=algorithm
+        )
         self.s_dim = self.pi_b.observation_space.shape[0]
         self.a_dim = self.pi_b.action_space.shape[0]
         self.rollout_len = rollout_len
@@ -137,10 +137,8 @@ class OffPolicyEvaluationExperiment(AbstractExperiment):
         """
         env = gym.make(env_name)
         data_dir = Path(__file__).parent / "ope_data"
-        pi_b = PPO.load(data_dir / "OPE_{}_{}".format(algo, 'behavioral'),
-                        device='cpu')
-        pi_t = PPO.load(data_dir / "OPE_{}_{}".format(algo, 'target'),
-                        device='cpu')
+        pi_b = PPO.load(data_dir / "OPE_{}_{}".format(algo, "behavioral"), device="cpu")
+        pi_t = PPO.load(data_dir / "OPE_{}_{}".format(algo, "target"), device="cpu")
         return pi_b, pi_t, env
 
     def get_model(self):
@@ -164,7 +162,7 @@ class OffPolicyEvaluationExperiment(AbstractExperiment):
         s, a = torch.from_numpy(s), torch.from_numpy(a)
         prob_b = self.pi_b.policy.get_distribution(s.view(1, -1))
         prob_t = self.pi_t.policy.get_distribution(s.view(1, -1))
-        log_ratio = prob_t.log_prob(a)/prob_b.log_prob(a)
+        log_ratio = prob_t.log_prob(a) / prob_b.log_prob(a)
         return log_ratio.detach().numpy()
 
     @staticmethod
@@ -183,7 +181,7 @@ class OffPolicyEvaluationExperiment(AbstractExperiment):
         -------
         moment_value: float
         """
-        return model_eval[0]*y - model_eval[1]
+        return model_eval[0] * y - model_eval[1]
 
     def generate_data(self, num_rollouts):
         """
@@ -215,54 +213,63 @@ class OffPolicyEvaluationExperiment(AbstractExperiment):
                 t.append(np.hstack((obs, obs_n)))
                 r.append(rewards)
                 obs = obs_n
-        return {'t': np.vstack(t), 'y': np.vstack(y),
-                'z': np.vstack(z), 'r': np.vstack(r)}
+        return {
+            "t": np.vstack(t),
+            "y": np.vstack(y),
+            "z": np.vstack(z),
+            "r": np.vstack(r),
+        }
 
     def prepare_dataset(self, n_train, n_val=None, n_test=None):
         self.train_data = self.generate_data(n_train)
         self.val_data = self.generate_data(n_val)
-        self.test_data = collect_data(env=self.env,
-                                      model=self.pi_t,
-                                      n_rollouts=n_test,
-                                      rollout_len=self.rollout_len)
+        self.test_data = collect_data(
+            env=self.env,
+            model=self.pi_t,
+            n_rollouts=n_test,
+            rollout_len=self.rollout_len,
+        )
 
     def step_IS_policy_eval(self, model, train_data):
         density_ratios = []
-        for s1s2 in train_data['t']:
+        for s1s2 in train_data["t"]:
             ratios = model(s1s2.reshape(1, -1)).detach().numpy()
             density_ratios.append(ratios[0])
         density_ratios = np.asarray(density_ratios)
-        weights = density_ratios * train_data['y']
-        value_estimate = np.sum(weights * train_data['r'])/np.sum(weights)
+        weights = density_ratios * train_data["y"]
+        value_estimate = np.sum(weights * train_data["r"]) / np.sum(weights)
         return value_estimate
 
     def eval_risk(self, model, *args, **kwargs):
         on_policy_estimate = on_policy_value_estimator(self.test_data)
         off_policy_estimate = self.step_IS_policy_eval(model, self.train_data)
-        print("On-PE: {} \t Off-PE: {}".format(on_policy_estimate,
-                                               off_policy_estimate))
-        return (on_policy_estimate - off_policy_estimate)**2
-
+        print("On-PE: {} \t Off-PE: {}".format(on_policy_estimate, off_policy_estimate))
+        return (on_policy_estimate - off_policy_estimate) ** 2
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--env', type=str, default='Pendulum-v1')
-parser.add_argument('--algo', type=str, default='ppo')
-parser.add_argument('--rollout_len', type=int, default=200)
+parser.add_argument("--env", type=str, default="Pendulum-v1")
+parser.add_argument("--algo", type=str, default="ppo")
+parser.add_argument("--rollout_len", type=int, default=200)
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    if args.algo != 'ppo':
+    if args.algo != "ppo":
         raise ValueError("Do not support algorithms other than PPO currently.")
 
     np.random.seed(12345)
     torch.random.manual_seed(12345)
-    exp = OffPolicyEvaluationExperiment(env_name=args.env,
-                                        algorithm=args.algo,
-                                        rollout_len=args.rollout_len)
-    methods = ['KernelMMR', 'KernelELKernel', 'KernelVMM',
-               'KernelELNeural', 'NeuralVMM']
+    exp = OffPolicyEvaluationExperiment(
+        env_name=args.env, algorithm=args.algo, rollout_len=args.rollout_len
+    )
+    methods = [
+        "KernelMMR",
+        "KernelELKernel",
+        "KernelVMM",
+        "KernelELNeural",
+        "NeuralVMM",
+    ]
     n_train = [5]
     results = {}
     for n_samples in n_train:
@@ -273,14 +280,17 @@ if __name__ == "__main__":
             for i in range(1):
                 model = exp.get_model()
                 try:
-                    trained_model, stats = estimation(model=model,
-                                                      train_data=exp.train_data,
-                                                      moment_function=exp.moment_function,
-                                                      estimation_method=method,
-                                                      estimator_kwargs=None, hyperparams=None,
-                                                      validation_data=exp.val_data, val_loss_func=exp.validation_loss,
-                                                      verbose=False
-                                                      )
+                    trained_model, stats = estimation(
+                        model=model,
+                        train_data=exp.train_data,
+                        moment_function=exp.moment_function,
+                        estimation_method=method,
+                        estimator_kwargs=None,
+                        hyperparams=None,
+                        validation_data=exp.val_data,
+                        val_loss_func=exp.validation_loss,
+                        verbose=False,
+                    )
                     # for idx in range(len(stats['models'])):
                     #     print("Model hyperparams: ", stats['hyperparam'][idx])
                     #     print("Validation loss: {} \t Risk: {}".format(stats['val_loss'][idx],
@@ -289,13 +299,14 @@ if __name__ == "__main__":
                 except:
                     test_risks.append(10)
             results[n_samples][method] = np.mean(test_risks)
-            print("Method: {} \t {}+/-{}".format(method,
-                                                 np.mean(test_risks),
-                                                 np.std(test_risks)))
+            print(
+                "Method: {} \t {}+/-{}".format(
+                    method, np.mean(test_risks), np.std(test_risks)
+                )
+            )
         print("Sample size: {}".format(n_samples))
         print(results[n_samples])
-    data_dir = Path(__file__).parent / 'ope_data'
-    file_path = data_dir / 'ope_exp_data'
-    with file_path.open('wb') as fid:
+    data_dir = Path(__file__).parent / "ope_data"
+    file_path = data_dir / "ope_exp_data"
+    with file_path.open("wb") as fid:
         pickle.dump(results, fid)
-

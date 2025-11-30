@@ -34,12 +34,15 @@ class ParameterVector(nn.Module):
     def init_params(self):
         if self.init_val is None:
             assert self.dim_x is not None
-            self.init_val = torch.tensor(1 / self.dim_x * np.ones(self.shape),
-                                         dtype=torch.float32)
+            self.init_val = torch.tensor(
+                1 / self.dim_x * np.ones(self.shape), dtype=torch.float32
+            )
         else:
             # TODO(yassine) assert correct shape and dtype if already torch tensor
             if type(self.init_val) == np.ndarray:
-                self.init_val = torch.from_numpy(self.init_val).type(torch.float32).clone()
+                self.init_val = (
+                    torch.from_numpy(self.init_val).type(torch.float32).clone()
+                )
         self.params = torch.nn.Parameter(self.init_val.clone(), requires_grad=True)
 
     def get_parameters(self):
@@ -68,12 +71,12 @@ def linear_g_function(x, a, b, numpy=True):
         matmul = np.matmul
         if torch.is_tensor(x):
             x = x.detach().numpy()
-        x_expanded = np.concatenate([x, x ** 2], axis=1)
+        x_expanded = np.concatenate([x, x**2], axis=1)
     else:
         matmul = torch.matmul
         if not torch.is_tensor(x):
             x = torch.tensor(x, dtype=torch.float32)
-        x_expanded = torch.cat([x, x ** 2], dim=1)
+        x_expanded = torch.cat([x, x**2], dim=1)
     return matmul(x_expanded, a) + b
 
 
@@ -104,8 +107,7 @@ class Model(nn.Module):
             self.b = nn.Parameter(params[1])
 
     def get_parameters(self):
-        param_tensor = torch.cat([self.a.data.flatten(),
-                                  self.b.data.flatten()], dim=0)
+        param_tensor = torch.cat([self.a.data.flatten(), self.b.data.flatten()], dim=0)
         return torch_to_np(param_tensor)
 
 
@@ -138,7 +140,6 @@ class LinearModel(nn.Module):
         return self.theta.clone().detach()
 
 
-
 class HeteroskedasticNoiseExperiment(AbstractExperiment):
     def __init__(self, theta, noise=1.0, heteroskedastic=False):
         self.theta0 = np.asarray(theta).reshape(1, -1)
@@ -166,20 +167,24 @@ class HeteroskedasticNoiseExperiment(AbstractExperiment):
         error1 = []
         if self.heteroskedastic:
             for i in range(num_data):
-                error1.append(np.random.normal(0, self.noise * np.abs(x[i, 0]) ** 2, size=self.dim_theta))
+                error1.append(
+                    np.random.normal(
+                        0, self.noise * np.abs(x[i, 0]) ** 2, size=self.dim_theta
+                    )
+                )
             error1 = np.asarray(error1).reshape((num_data, self.dim_theta))
         else:
             error1 = np.random.normal(0, self.noise, [num_data, 1])
         y = eval_model(x, self.theta0, numpy=True) + error1
-        return {'x': x, 'y': y, 'z': x[:, 0].reshape((-1, 1))}
+        return {"x": x, "y": y, "z": x[:, 0].reshape((-1, 1))}
 
     def get_true_parameters(self):
         return np.array(self.theta0)
 
     def eval_risk(self, model, data):
-        t_test = torch.from_numpy(data['x']).type(torch.float32)
+        t_test = torch.from_numpy(data["x"]).type(torch.float32)
         y_test = eval_model(t_test, self.theta0, numpy=True)
-        y_pred = model.forward(data['x']).detach().numpy()
+        y_pred = model.forward(data["x"]).detach().numpy()
         return float(((y_test - y_pred) ** 2).mean())
 
     def validation_loss(self, model, val_data):
@@ -188,8 +193,7 @@ class HeteroskedasticNoiseExperiment(AbstractExperiment):
 
 class SimpleIVScenario(AbstractExperiment):
     def __init__(self, iv_strength=0.30):
-        self.a = np.array([[3.0],
-                           [-0.5]])
+        self.a = np.array([[3.0], [-0.5]])
         self.b = np.array([0.5])
         self.iv_strength = iv_strength
         super().__init__(dim_psi=self.a.shape[1], dim_theta=3, dim_z=1)
@@ -206,7 +210,7 @@ class SimpleIVScenario(AbstractExperiment):
         y_noise = -2.0 * h + epsilon
         g = linear_g_function(x, a=self.a, b=self.b, numpy=True)
         y = g + y_noise
-        return {'x': x, 'y': y, 'z': z}
+        return {"x": x, "y": y, "z": z}
 
     def init_model(self):
         return Model()
@@ -218,47 +222,72 @@ class SimpleIVScenario(AbstractExperiment):
     def get_true_parameters(self):
         return np.concatenate([self.a.flatten(), self.b.flatten()], axis=0)
 
-    def eval_risk(self,  model, data):
-        t_test = data['t']
+    def eval_risk(self, model, data):
+        t_test = data["t"]
         y_test = linear_g_function(t_test, a=self.a, b=self.b, numpy=True)
-        y_pred = model.forward(torch.Tensor(data['t'])).detach().numpy()
+        y_pred = model.forward(torch.Tensor(data["t"])).detach().numpy()
         return float(((y_test - y_pred) ** 2).mean())
 
 
-def compute_objective(x1, x2, model, y1, y2, Kzz, exp,
-                      mode='particles', particles='x', tau=1.0, dro=False,
-                      p0=None, delta=False):
+def compute_objective(
+    x1,
+    x2,
+    model,
+    y1,
+    y2,
+    Kzz,
+    exp,
+    mode="particles",
+    particles="x",
+    tau=1.0,
+    dro=False,
+    p0=None,
+    delta=False,
+):
     yy1 = model.forward(x1)
     yy2 = model.forward(x2)
     psi1 = exp.moment_function(yy1, y1)
     psi2 = exp.moment_function(yy2, y2)
-    obj = psi1.T @ Kzz @ psi2 / (len(x1)**2)
-    if mode == 'particles':
+    obj = psi1.T @ Kzz @ psi2 / (len(x1) ** 2)
+    if mode == "particles":
         obj *= 2
         if dro:
             obj *= -1
-        if particles == 'x':
-            reg = torch.linalg.norm(x1 - x2)**2
-        elif particles == 'y':
-            reg = torch.linalg.norm(y1 - y2)**2
-        elif particles == 'xy':
+        if particles == "x":
+            reg = torch.linalg.norm(x1 - x2) ** 2
+        elif particles == "y":
+            reg = torch.linalg.norm(y1 - y2) ** 2
+        elif particles == "xy":
             xy1 = torch.stack((x1, y1))
             xy2 = torch.stack((x2, y2))
-            reg = torch.linalg.norm(xy1 - xy2)**2
+            reg = torch.linalg.norm(xy1 - xy2) ** 2
         elif type(particles.params) == torch.nn.parameter.Parameter:
-            reg = torch.linalg.norm(particles.params - p0)**2
+            reg = torch.linalg.norm(particles.params - p0) ** 2
         else:
             raise ValueError
         obj += 0.5 * reg / tau
     else:
-        raise ValueError('This mode {} does not exist.'.format(mode))
+        raise ValueError("This mode {} does not exist.".format(mode))
     return obj
 
 
-def particle_optimization(x, y, Kzz, m, exp, tau, particles, p_opt, loss_particle,
-                          mode, particle_iter, dro, delta_mode):
+def particle_optimization(
+    x,
+    y,
+    Kzz,
+    m,
+    exp,
+    tau,
+    particles,
+    p_opt,
+    loss_particle,
+    mode,
+    particle_iter,
+    dro,
+    delta_mode,
+):
     # Perform particle update
-    if mode == 'x':
+    if mode == "x":
         x1 = particles.params
         if delta_mode:
             x2 = particles.params
@@ -268,7 +297,7 @@ def particle_optimization(x, y, Kzz, m, exp, tau, particles, p_opt, loss_particl
         y1 = y
         y2 = y
         p0 = x
-    elif mode == 'y':
+    elif mode == "y":
         x1 = x
         x2 = x
         y1 = particles.params
@@ -278,12 +307,12 @@ def particle_optimization(x, y, Kzz, m, exp, tau, particles, p_opt, loss_particl
         else:
             y2 = y
         p0 = y
-    elif mode == 'xy':
-        x1 = particles.params[:, :x.shape[1]]
-        y1 = particles.params[:, x.shape[1]:]
+    elif mode == "xy":
+        x1 = particles.params[:, : x.shape[1]]
+        y1 = particles.params[:, x.shape[1] :]
         if delta_mode:
-            x2 = particles.params[:, :x.shape[1]]
-            y2 = particles.params[:, x.shape[1]:]
+            x2 = particles.params[:, : x.shape[1]]
+            y2 = particles.params[:, x.shape[1] :]
             mode = particles
         else:
             x2 = x
@@ -297,23 +326,37 @@ def particle_optimization(x, y, Kzz, m, exp, tau, particles, p_opt, loss_particl
 
     def particle_closure():
         p_opt.zero_grad()
-        obj = compute_objective(x1, x2, m, y1, y2, Kzz, exp,
-                                mode='particles', particles=mode,
-                                tau=tau, dro=dro, p0=p0, delta=delta_mode)
+        obj = compute_objective(
+            x1,
+            x2,
+            m,
+            y1,
+            y2,
+            Kzz,
+            exp,
+            mode="particles",
+            particles=mode,
+            tau=tau,
+            dro=dro,
+            p0=p0,
+            delta=delta_mode,
+        )
         loss_particle.append(obj.clone().detach().squeeze())
         obj.backward()
         return obj
 
-    if mode == 'x':
+    if mode == "x":
         particles.update_params(x)
-    elif mode == 'y':
+    elif mode == "y":
         particles.update_params(y)
-    elif mode == 'xy':
+    elif mode == "xy":
         particles.update_params(torch.cat((x, y), dim=1))
 
     for j in range(particle_iter):
         p_opt.step(closure=particle_closure)
-        delta_mean = torch.mean(torch.linalg.norm(particles.params.detach() - p0, dim=1))
+        delta_mean = torch.mean(
+            torch.linalg.norm(particles.params.detach() - p0, dim=1)
+        )
         if np.isclose(np.mean(loss_window), delta_mean, atol=1e-5, rtol=0.0):
             break
         else:
@@ -321,22 +364,23 @@ def particle_optimization(x, y, Kzz, m, exp, tau, particles, p_opt, loss_particl
             loss_window.popleft()
     # print("Original particles: ", p0.t())
     # print("Modified particles: ", particles.params.detach().t())
-    print("Particle update L2 norm: {0} achieved in {1} steps".format(
-          loss_window[-1], j))
+    print(
+        "Particle update L2 norm: {0} achieved in {1} steps".format(loss_window[-1], j)
+    )
 
 
 def theta_optimization(x, y, Kzz, m, exp, particles, m_opt, loss_wmm, mode, theta_iter):
     for j in range(theta_iter):
         # compute objective
-        if mode == 'x':
+        if mode == "x":
             xp = particles.params
             yp = y
-        elif mode == 'y':
+        elif mode == "y":
             xp = x
             yp = particles.params
-        elif mode == 'xy':
-            xp = particles.params[:, :x.shape[1]]
-            yp = particles.params[:, x.shape[1]:]
+        elif mode == "xy":
+            xp = particles.params[:, : x.shape[1]]
+            yp = particles.params[:, x.shape[1] :]
         obj = compute_objective(xp, xp, m, yp, yp, Kzz, exp)
         m_opt.zero_grad()
         obj.backward()
@@ -344,7 +388,9 @@ def theta_optimization(x, y, Kzz, m, exp, particles, m_opt, loss_wmm, mode, thet
         loss_wmm.append(obj.data[0, 0])
 
 
-def eval_exp(param_true, param_wmm, param_mmr, p_learned, p_train, p_true, moment_function):
+def eval_exp(
+    param_true, param_wmm, param_mmr, p_learned, p_train, p_true, moment_function
+):
     xl, yl = p_learned
     xt, yt = p_train
     x, y = p_true
@@ -379,18 +425,18 @@ def run_exp(exp, n_runs, args):
         n_data = args.n_data
         # Generate experiment data and parse it
         theta = [1.4]
-        if args.exp == 'hetero':
+        if args.exp == "hetero":
             exp = HeteroskedasticNoiseExperiment(theta=theta)
             m = LinearModel(len(theta))
-        elif args.exp == 'simpleiv':
+        elif args.exp == "simpleiv":
             exp = SimpleIVScenario()
             m = Model()
         else:
             raise ValueError
         data = exp.generate_data(n_data)
-        x = torch.from_numpy(data['x']).type(torch.float32)
-        y = torch.from_numpy(data['y']).type(torch.float32)
-        z = torch.from_numpy(data['z']).type(torch.float32)
+        x = torch.from_numpy(data["x"]).type(torch.float32)
+        y = torch.from_numpy(data["y"]).type(torch.float32)
+        z = torch.from_numpy(data["z"]).type(torch.float32)
         Kzz, _ = get_rbf_kernel(z, z)
         xy = torch.cat((x, y), axis=1)
 
@@ -398,17 +444,17 @@ def run_exp(exp, n_runs, args):
         # Regular MMR solution
         ##################
 
-        if args.exp == 'hetero':
+        if args.exp == "hetero":
             m1 = LinearModel(len(theta))
-        elif args.exp == 'simpleiv':
+        elif args.exp == "simpleiv":
             m1 = Model()
         else:
             raise ValueError
         m1.initialize()
         # Perform batch GD
-        opt = optim.LBFGS(params=m1.parameters(),
-                          line_search_fn='strong_wolfe',
-                          max_iter=100)
+        opt = optim.LBFGS(
+            params=m1.parameters(), line_search_fn="strong_wolfe", max_iter=100
+        )
         m1.train()
         loss_mmr = []
 
@@ -428,18 +474,18 @@ def run_exp(exp, n_runs, args):
         ##################
 
         # Particles and model to be trained
-        if args.mode == 'x':
+        if args.mode == "x":
             dim = x.shape[1]
             init_val = x
-        elif args.mode == 'y':
+        elif args.mode == "y":
             dim = y.shape[1]
             init_val = y
-        elif args.mode == 'xy':
+        elif args.mode == "xy":
             dim = x.shape[1] + y.shape[1]
             init_val = xy
         loss_dict = {}
-        for tau in hyperparam['tau']:
-            print('Tau variable: {}'.format(tau))
+        for tau in hyperparam["tau"]:
+            print("Tau variable: {}".format(tau))
             p = ParameterVector(dim_x=n_data, dim_y=dim, init_value=init_val)
             if args.pretrain:
                 params = [p.clone().detach() for p in m1.parameters()]
@@ -451,10 +497,12 @@ def run_exp(exp, n_runs, args):
             # p_opt = optim.LBFGS(params=p.parameters(),
             #                     line_search_fn='strong_wolfe',
             #                     max_iter=100)
-            p_opt = optim.Adam(params=p.parameters(), lr=args.particle_lr,
-                               betas=(0.5, 0.9))
-            m_opt = optim.Adam(params=m.parameters(), lr=args.theta_lr,
-                               betas=(0.5, 0.9))
+            p_opt = optim.Adam(
+                params=p.parameters(), lr=args.particle_lr, betas=(0.5, 0.9)
+            )
+            m_opt = optim.Adam(
+                params=m.parameters(), lr=args.theta_lr, betas=(0.5, 0.9)
+            )
 
             m.train()
             p.train()
@@ -467,11 +515,25 @@ def run_exp(exp, n_runs, args):
                 if args.annealing:
                     tau *= args.annealing_rate
                     # tau = min(tau, 1.0)
-                particle_optimization(x, y, Kzz, m, exp, tau, p, p_opt, loss_particle,
-                                      args.mode, args.particle_iter, args.dro, args.delta)
+                particle_optimization(
+                    x,
+                    y,
+                    Kzz,
+                    m,
+                    exp,
+                    tau,
+                    p,
+                    p_opt,
+                    loss_particle,
+                    args.mode,
+                    args.particle_iter,
+                    args.dro,
+                    args.delta,
+                )
 
-                theta_optimization(x, y, Kzz, m, exp, p, m_opt, loss_wmm,
-                                   args.mode, args.theta_iter)
+                theta_optimization(
+                    x, y, Kzz, m, exp, p, m_opt, loss_wmm, args.mode, args.theta_iter
+                )
 
                 # Termination criteria of training loop
                 if np.isclose(np.mean(loss_window), loss_wmm[-1], atol=1e-5, rtol=0.0):
@@ -483,39 +545,49 @@ def run_exp(exp, n_runs, args):
                 print("Iter: {0} objective: {1}".format(i, loss_wmm[-1]))
                 i += 1
 
-            if args.exp == 'hetero':
+            if args.exp == "hetero":
                 print("True model parameters -- {0}".format(exp.theta0.flatten()))
-                print("Learned model parameters -- WMM: {0} \t MMR: {1}".format(m.theta.flatten().detach(),
-                                                                                m1.theta.flatten().detach()))
+                print(
+                    "Learned model parameters -- WMM: {0} \t MMR: {1}".format(
+                        m.theta.flatten().detach(), m1.theta.flatten().detach()
+                    )
+                )
                 true_param = exp.theta0.flatten()
                 wmm_param = m.theta.flatten().detach().numpy()
                 mmr_param = m1.theta.flatten().detach().numpy()
-            elif args.exp == 'simpleiv':
+            elif args.exp == "simpleiv":
                 true_param = np.concatenate([exp.a.flatten(), exp.b.flatten()])
-                wmm_param = np.concatenate([m.a.flatten().detach().numpy(), m.b.flatten().detach().numpy()])
-                mmr_param = np.concatenate([m1.a.flatten().detach().numpy(), m1.b.flatten().detach().numpy()])
+                wmm_param = np.concatenate(
+                    [m.a.flatten().detach().numpy(), m.b.flatten().detach().numpy()]
+                )
+                mmr_param = np.concatenate(
+                    [m1.a.flatten().detach().numpy(), m1.b.flatten().detach().numpy()]
+                )
                 print("True model parameters -- {0}".format(true_param))
-                print("Learned model parameters -- WMM: {0} \t MMR: {1}".format(wmm_param,
-                                                                                mmr_param))
+                print(
+                    "Learned model parameters -- WMM: {0} \t MMR: {1}".format(
+                        wmm_param, mmr_param
+                    )
+                )
 
-            if args.mode == 'x':
+            if args.mode == "x":
                 xp = p.params
                 yp = y
-            elif args.mode == 'y':
+            elif args.mode == "y":
                 xp = x
                 yp = p.params
-            elif args.mode == 'xy':
-                xp = p.params[:, :x.shape[1]]
-                yp = p.params[:, x.shape[1]:]
+            elif args.mode == "xy":
+                xp = p.params[:, : x.shape[1]]
+                yp = p.params[:, x.shape[1] :]
             p_learned = (xp, yp)
             p_emp = (x, y)
             p_true = exp.generate_true_data(args.n_data)
             eval_exp(true_param, wmm_param, mmr_param, p_learned, p_emp, p_true)
 
             test_data = exp.generate_data(10000)
-            x_test = torch.from_numpy(test_data['x']).type(torch.float32)
-            y_test = torch.from_numpy(test_data['y']).type(torch.float32)
-            z_test = torch.from_numpy(test_data['z']).type(torch.float32)
+            x_test = torch.from_numpy(test_data["x"]).type(torch.float32)
+            y_test = torch.from_numpy(test_data["y"]).type(torch.float32)
+            z_test = torch.from_numpy(test_data["z"]).type(torch.float32)
             K_test, _ = get_rbf_kernel(z_test, z_test)
             wmm_obj = compute_objective(x_test, x_test, m, y_test, y_test, K_test, exp)
             mmr_obj = compute_objective(x_test, x_test, m1, y_test, y_test, K_test, exp)
@@ -531,18 +603,18 @@ def run_exp(exp, n_runs, args):
 
             fig, ax = plt.subplots(1, 2)
             plt.title(r"$\tau = {}$".format(tau))
-            ax[0].plot(loss_mmr, label='MMR')
-            ax[0].plot(loss_wmm, label='WMM')
+            ax[0].plot(loss_mmr, label="MMR")
+            ax[0].plot(loss_wmm, label="WMM")
             ax[0].legend()
-            ax[1].plot(loss_particle, label='particle')
+            ax[1].plot(loss_particle, label="particle")
             ax[1].legend()
             plt.show()
         fig, ax = plt.subplots(1, 1)
-        ax.plot(hyperparam['tau'], wmm_param_err[-1], label='WMM')
-        ax.plot(hyperparam['tau'], mmr_param_err[-1], label='MMR')
-        plt.xlabel(r'$\tau$')
-        plt.ylabel(r'MSE $\theta$')
-        plt.xscale('log')
+        ax.plot(hyperparam["tau"], wmm_param_err[-1], label="WMM")
+        ax.plot(hyperparam["tau"], mmr_param_err[-1], label="MMR")
+        plt.xlabel(r"$\tau$")
+        plt.ylabel(r"MSE $\theta$")
+        plt.xscale("log")
         plt.legend()
         plt.show()
 
@@ -553,19 +625,27 @@ def run_exp(exp, n_runs, args):
     print(mmr_param_err)
     print(np.mean(mmr_param_err, axis=0), np.std(mmr_param_err, axis=0))
     fig, ax = plt.subplots(1, 1)
-    ax.plot(hyperparam['tau'], np.mean(wmm_param_err, axis=0), label='WMM')
-    ax.fill_between(hyperparam['tau'],
-                    np.mean(wmm_param_err, axis=0) + np.std(wmm_param_err, axis=0)/np.sqrt(n_runs),
-                    np.mean(wmm_param_err, axis=0) - np.std(wmm_param_err, axis=0)/np.sqrt(n_runs),
-                    alpha=0.2)
-    ax.plot(hyperparam['tau'], np.mean(mmr_param_err, axis=0), label='MMR')
-    ax.fill_between(hyperparam['tau'],
-                    np.mean(mmr_param_err, axis=0) + np.std(mmr_param_err, axis=0)/np.sqrt(n_runs),
-                    np.mean(mmr_param_err, axis=0) - np.std(mmr_param_err, axis=0)/np.sqrt(n_runs),
-                    alpha=0.2)
-    plt.xlabel(r'$\tau$')
-    plt.ylabel(r'MSE $\theta$')
-    plt.xscale('log')
+    ax.plot(hyperparam["tau"], np.mean(wmm_param_err, axis=0), label="WMM")
+    ax.fill_between(
+        hyperparam["tau"],
+        np.mean(wmm_param_err, axis=0)
+        + np.std(wmm_param_err, axis=0) / np.sqrt(n_runs),
+        np.mean(wmm_param_err, axis=0)
+        - np.std(wmm_param_err, axis=0) / np.sqrt(n_runs),
+        alpha=0.2,
+    )
+    ax.plot(hyperparam["tau"], np.mean(mmr_param_err, axis=0), label="MMR")
+    ax.fill_between(
+        hyperparam["tau"],
+        np.mean(mmr_param_err, axis=0)
+        + np.std(mmr_param_err, axis=0) / np.sqrt(n_runs),
+        np.mean(mmr_param_err, axis=0)
+        - np.std(mmr_param_err, axis=0) / np.sqrt(n_runs),
+        alpha=0.2,
+    )
+    plt.xlabel(r"$\tau$")
+    plt.ylabel(r"MSE $\theta$")
+    plt.xscale("log")
     plt.legend()
     plt.show()
 
@@ -582,24 +662,26 @@ def run_exp(exp, n_runs, args):
     #                                                                      np.std(mmr_test_losses),
     #                                                                      np.mean(mmr_param_err),
     #                                                                      np.std(mmr_param_err)))
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--exp', type=str, default='hetero')
-parser.add_argument('--n_data', type=int, default=200)
-parser.add_argument('--pretrain', default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument('--mode', type=str, default='xy')
-parser.add_argument('--theta_iter', type=int, default=1)
-parser.add_argument('--particle_iter', type=int, default=5000)
-parser.add_argument('--theta_lr', type=float, default=1e-2)
-parser.add_argument('--particle_lr', type=float, default=1e-2)
-parser.add_argument('--annealing', default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument('--annealing_rate', type=float, default=0.95)
-parser.add_argument('--dro', default=False, action=argparse.BooleanOptionalAction)
-parser.add_argument('--delta', default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--exp", type=str, default="hetero")
+parser.add_argument("--n_data", type=int, default=200)
+parser.add_argument("--pretrain", default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--mode", type=str, default="xy")
+parser.add_argument("--theta_iter", type=int, default=1)
+parser.add_argument("--particle_iter", type=int, default=5000)
+parser.add_argument("--theta_lr", type=float, default=1e-2)
+parser.add_argument("--particle_lr", type=float, default=1e-2)
+parser.add_argument("--annealing", default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--annealing_rate", type=float, default=0.95)
+parser.add_argument("--dro", default=False, action=argparse.BooleanOptionalAction)
+parser.add_argument("--delta", default=False, action=argparse.BooleanOptionalAction)
 
 hyperparam = {
     # 'tau': [1e-1, 1e-3]
     # 'tau': [1e-4, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4]
-    'tau': [1e-3, 1e-2, 1e0, 1e1, 1e2]
+    "tau": [1e-3, 1e-2, 1e0, 1e1, 1e2]
 }
 if __name__ == "__main__":
     # torch.manual_seed(10)

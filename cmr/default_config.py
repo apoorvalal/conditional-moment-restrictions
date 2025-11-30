@@ -4,6 +4,10 @@ import copy
 """Default configurations and hyperparameter search spaces for all methods"""
 
 
+mmr_kwargs = {
+    "kernel_z_kwargs": {},
+}
+
 gel_kwargs = {
     "divergence": "chi2",
     "reg_param": 0.0,

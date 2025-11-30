@@ -20,12 +20,12 @@ def linear_g_function(t, a, b, numpy=True):
         matmul = np.matmul
         if torch.is_tensor(t):
             t = t.detach().numpy()
-        t_expanded = np.concatenate([t, t ** 2], axis=1)
+        t_expanded = np.concatenate([t, t**2], axis=1)
     else:
         matmul = torch.matmul
         if not torch.is_tensor(t):
             t = torch.tensor(t, dtype=torch.float32)
-        t_expanded = torch.cat([t, t ** 2], dim=1)
+        t_expanded = torch.cat([t, t**2], dim=1)
     return matmul(t_expanded, a) + b
 
 
@@ -52,15 +52,13 @@ class Model(nn.Module):
         nn.init.normal_(self.b)
 
     def get_parameters(self):
-        param_tensor = torch.cat([self.a.data.flatten(),
-                                  self.b.data.flatten()], dim=0)
+        param_tensor = torch.cat([self.a.data.flatten(), self.b.data.flatten()], dim=0)
         return torch_to_np(param_tensor)
 
 
 class SimpleIVScenario(AbstractExperiment):
     def __init__(self, iv_strength=0.30):
-        self.a = np.array([[3.0],
-                           [-0.5]])
+        self.a = np.array([[3.0], [-0.5]])
         self.b = np.array([0.5])
         self.iv_strength = iv_strength
         super().__init__(dim_psi=self.a.shape[1], dim_theta=3, dim_z=1)
@@ -77,7 +75,7 @@ class SimpleIVScenario(AbstractExperiment):
         y_noise = -2.0 * h + epsilon
         g = linear_g_function(t, a=self.a, b=self.b, numpy=True)
         y = g + y_noise
-        return {'t': t, 'y': y, 'z': z}
+        return {"t": t, "y": y, "z": z}
 
     def get_model(self):
         return Model()
@@ -89,10 +87,10 @@ class SimpleIVScenario(AbstractExperiment):
     def get_true_parameters(self):
         return np.concatenate([self.a.flatten(), self.b.flatten()], axis=0)
 
-    def eval_risk(self,  model, data):
-        t_test = data['t']
+    def eval_risk(self, model, data):
+        t_test = data["t"]
         y_test = linear_g_function(t_test, a=self.a, b=self.b, numpy=True)
-        y_pred = model.forward(torch.Tensor(data['t'])).detach().numpy()
+        y_pred = model.forward(torch.Tensor(data["t"])).detach().numpy()
         return float(((y_test - y_pred) ** 2).mean())
 
 

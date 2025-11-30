@@ -48,17 +48,18 @@ class Model(nn.Module):
         nn.init.normal_(self.b)
 
     def get_parameters(self):
-        param_tensor = torch.cat([self.a.data.flatten(),
-                                  self.b.data.flatten()], dim=0)
+        param_tensor = torch.cat([self.a.data.flatten(), self.b.data.flatten()], dim=0)
         return torch_to_np(param_tensor)
 
 
 class MultiOutputIVScenario(AbstractExperiment):
     def __init__(self, iv_strength=0.75):
-        self.a = np.array([
-            [1.0, -1.5],
-            [2.0, 3.0],
-        ])
+        self.a = np.array(
+            [
+                [1.0, -1.5],
+                [2.0, 3.0],
+            ]
+        )
         self.b = np.array([-0.5, 0.5])
         self.iv_strength = iv_strength
         super().__init__(dim_psi=self.a.shape[1], dim_theta=6, dim_z=1)
@@ -74,7 +75,7 @@ class MultiOutputIVScenario(AbstractExperiment):
         y_noise = -1.0 * h + epsilon
         g = linear_g_function(t, a=self.a, b=self.b, numpy=True)
         y = g + y_noise
-        return {'t': t, 'y': y, 'z': z}
+        return {"t": t, "y": y, "z": z}
 
     def get_model(self):
         return Model()
@@ -86,10 +87,10 @@ class MultiOutputIVScenario(AbstractExperiment):
     def get_true_parameters(self):
         return np.concatenate([self.a.flatten(), self.b.flatten()], axis=0)
 
-    def eval_risk(self,  model, data):
-        t_test = data['t']
+    def eval_risk(self, model, data):
+        t_test = data["t"]
         y_test = linear_g_function(t_test, a=self.a, b=self.b, numpy=True)
-        y_pred = model.forward(torch.Tensor(data['t'])).detach().numpy()
+        y_pred = model.forward(torch.Tensor(data["t"])).detach().numpy()
         return float(((y_test - y_pred) ** 2).mean())
 
 

@@ -12,8 +12,11 @@ def np_softplus(x, sharpness=1):
 
 def torch_softplus(x, sharpness=1):
     x_s = sharpness * x
-    return ((torch.log(1 + torch.exp(-torch.abs(x_s)))
-             + torch.max(x_s, torch.zeros_like(x_s))) / sharpness)
+    return (
+        torch.log(1 + torch.exp(-torch.abs(x_s)))
+        + torch.max(x_s, torch.zeros_like(x_s))
+    ) / sharpness
+
 
 def torch_to_float(tensor):
     return float(tensor.detach().cpu())
@@ -50,9 +53,15 @@ class Model(nn.Module):
         return True
 
     def forward(self, t):
-        g = hinge_g_function(t, p_t=self.pivot_t, p_y=self.pivot_y,
-                         m_1=self.slope_1, m_2=self.slope_2,
-                         s=self.sharpness, numpy=False)
+        g = hinge_g_function(
+            t,
+            p_t=self.pivot_t,
+            p_y=self.pivot_y,
+            m_1=self.slope_1,
+            m_2=self.slope_2,
+            s=self.sharpness,
+            numpy=False,
+        )
         return g
 
     def initialize(self):
@@ -62,16 +71,30 @@ class Model(nn.Module):
         nn.init.normal_(self.slope_2, std=1.0)
 
     def get_parameters(self):
-        param_tensor = torch.cat([self.pivot_t.data, self.pivot_y.data,
-                                  self.slope_1.data, self.slope_2.data,
-                                  ], dim=0)
-                                  # self.sharpness], dim=0)
+        param_tensor = torch.cat(
+            [
+                self.pivot_t.data,
+                self.pivot_y.data,
+                self.slope_1.data,
+                self.slope_2.data,
+            ],
+            dim=0,
+        )
+        # self.sharpness], dim=0)
         return torch_to_np(param_tensor)
 
 
 class HeteroskedasticIVScenario(AbstractExperiment):
-    def __init__(self, pivot_t=2.0, pivot_y=3.0, slope_1=-0.5, slope_2=3.0,
-                 sharpness=2.0, gamma=0.95, iv_strength=0.75):
+    def __init__(
+        self,
+        pivot_t=2.0,
+        pivot_y=3.0,
+        slope_1=-0.5,
+        slope_2=3.0,
+        sharpness=2.0,
+        gamma=0.95,
+        iv_strength=0.75,
+    ):
         super().__init__(dim_psi=1, dim_theta=4, dim_z=2)
         self.pivot_t = pivot_t
         self.pivot_y = pivot_y
@@ -90,11 +113,17 @@ class HeteroskedasticIVScenario(AbstractExperiment):
         t = self.iv_strength * t_1 + (1 - self.iv_strength) * t_2
         hetero_noise = 0.10 * np.random.randn(num_data, 1) * np_softplus(t_1)
         y_noise = 1.0 * h + hetero_noise
-        g = hinge_g_function(t, p_t=self.pivot_t, p_y=self.pivot_y,
-                             m_1=self.slope_1, m_2=self.slope_2,
-                             s=self.sharpness, numpy=True)
+        g = hinge_g_function(
+            t,
+            p_t=self.pivot_t,
+            p_y=self.pivot_y,
+            m_1=self.slope_1,
+            m_2=self.slope_2,
+            s=self.sharpness,
+            numpy=True,
+        )
         y = g + y_noise
-        return {'t': t, 'y': y, 'z': z}
+        return {"t": t, "y": y, "z": z}
 
     def get_model(self):
         return Model()
@@ -104,12 +133,17 @@ class HeteroskedasticIVScenario(AbstractExperiment):
         return model_evaluation - y
 
     def get_true_parameters(self):
-        return np.array([self.pivot_t, self.pivot_y, self.slope_1,
-                         self.slope_2])
+        return np.array([self.pivot_t, self.pivot_y, self.slope_1, self.slope_2])
 
     def eval_risk(self, model, data):
-        y_test = hinge_g_function(data['t'], p_t=self.pivot_t, p_y=self.pivot_y,
-                                  m_1=self.slope_1, m_2=self.slope_2,
-                                  s=self.sharpness, numpy=True)
-        y_pred = model.forward(torch.tensor(data['t'])).detach().numpy()
+        y_test = hinge_g_function(
+            data["t"],
+            p_t=self.pivot_t,
+            p_y=self.pivot_y,
+            m_1=self.slope_1,
+            m_2=self.slope_2,
+            s=self.sharpness,
+            numpy=True,
+        )
+        y_pred = model.forward(torch.tensor(data["t"])).detach().numpy()
         return float(((y_test - y_pred) ** 2).mean())

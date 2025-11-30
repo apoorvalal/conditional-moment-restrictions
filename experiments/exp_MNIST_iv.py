@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib
-matplotlib.use('QT5Agg')
+
+matplotlib.use("QT5Agg")
 from matplotlib import pyplot as plt
 from pathlib import Path
 from torchvision import datasets, transforms
@@ -11,9 +12,21 @@ from experiments.abstract_experiment import AbstractExperiment
 from cmr.methods.least_squares import OrdinaryLeastSquares
 
 
-methods = ['OLS', 'KernelMMR', 'SMD', 'KernelVMM', 'NeuralVMM', 'KernelELKernel', 'KernelELNeural',
-           'KernelFGEL-chi2', 'KernelFGEL-kl', 'KernelFGEL-log',
-           'NeuralFGEL-chi2', 'NeuralFGEL-kl', 'NeuralFGEL-log',]
+methods = [
+    "OLS",
+    "KernelMMR",
+    "SMD",
+    "KernelVMM",
+    "NeuralVMM",
+    "KernelELKernel",
+    "KernelELNeural",
+    "KernelFGEL-chi2",
+    "KernelFGEL-kl",
+    "KernelFGEL-log",
+    "NeuralFGEL-chi2",
+    "NeuralFGEL-kl",
+    "NeuralFGEL-log",
+]
 
 
 class NetworkModel(nn.Module):
@@ -32,7 +45,7 @@ class NetworkModel(nn.Module):
             torch.nn.Linear(9216, 512),
             torch.nn.LeakyReLU(),
             torch.nn.Dropout2d(0.5),
-            torch.nn.Linear(512, 1)
+            torch.nn.Linear(512, 1),
         )
 
     def forward(self, t):
@@ -45,7 +58,7 @@ class NetworkModel(nn.Module):
 
 
 class NetworkIVExperiment(AbstractExperiment):
-    def __init__(self, ftype='sin', MNIST_type='t'):
+    def __init__(self, ftype="sin", MNIST_type="t"):
         super().__init__(dim_theta=None, dim_psi=1, dim_z=2)
         self.ftype = ftype
         self.func = self.set_function()
@@ -56,7 +69,7 @@ class NetworkIVExperiment(AbstractExperiment):
 
     @staticmethod
     def pi(val):
-        return np.round(np.minimum(np.maximum(1.5*val + 5, 0), 9)).squeeze()
+        return np.round(np.minimum(np.maximum(1.5 * val + 5, 0), 9)).squeeze()
 
     @staticmethod
     def moment_function(model_evaluation, y):
@@ -65,20 +78,23 @@ class NetworkIVExperiment(AbstractExperiment):
     def prepare_dataset(self, n_train, n_val=None, n_test=None):
         self.train_data = self.generate_data(n_train)
         self.val_data = self.generate_data(n_val)
-        self.test_data = self.generate_data(n_test, mode='test')
+        self.test_data = self.generate_data(n_test, mode="test")
 
-    def generate_data(self, n_sample, split=None, mode='train'):
+    def generate_data(self, n_sample, split=None, mode="train"):
         """Generates train, validation and test data"""
         # load MNIST
-        data_dir = Path(__file__).parent / 'MNIST_data'
+        data_dir = Path(__file__).parent / "MNIST_data"
         mnist_train = torch.utils.data.DataLoader(
-            datasets.MNIST(data_dir,
-                           train=True,
-                           download=True,
-                           transform=transforms.Compose([
-                               transforms.ToTensor(),
-                               transforms.Normalize((0.1307,), (0.3081,))])),
-            batch_size=60000)
+            datasets.MNIST(
+                data_dir,
+                train=True,
+                download=True,
+                transform=transforms.Compose(
+                    [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+                ),
+            ),
+            batch_size=60000,
+        )
         train_data, train_labels = list(mnist_train)[0]
         e = np.random.normal(loc=0, scale=1.0, size=[n_sample, 1])
         gamma = np.random.normal(loc=0, scale=0.01, size=[n_sample, 1])
@@ -93,7 +109,9 @@ class NetworkIVExperiment(AbstractExperiment):
             t = torch.zeros((n_sample, *train_data[0].shape))
             for i in range(9):
                 label_idx = np.where(labels == i)[0]
-                images = self.random_mnist_img(train_data, train_labels, i, len(label_idx))
+                images = self.random_mnist_img(
+                    train_data, train_labels, i, len(label_idx)
+                )
                 t[label_idx, :, :] = images
         elif self.mnist_type == "z":
             t = t_low
@@ -130,70 +148,78 @@ class NetworkIVExperiment(AbstractExperiment):
         return images
 
     def eval_risk(self, model, data):
-        g_test = self.func(data['t_low'])
-        g_test_pred = model.forward(data['t']).detach().cpu().numpy()
+        g_test = self.func(data["t_low"])
+        g_test_pred = model.forward(data["t"]).detach().cpu().numpy()
         mse = float(((g_test - g_test_pred) ** 2).mean())
         return mse
 
     def set_function(self):
-        if self.ftype == 'linear':
+        if self.ftype == "linear":
+
             def func(x):
                 return x
-        elif self.ftype == 'sin':
+        elif self.ftype == "sin":
+
             def func(x):
                 return np.sin(x)
-        elif self.ftype == 'step':
+        elif self.ftype == "step":
+
             def func(x):
                 return np.asarray(x > 0, dtype=float)
-        elif self.ftype == 'abs':
+        elif self.ftype == "abs":
+
             def func(x):
                 return np.abs(x)
         else:
             raise NotImplementedError
         return func
 
-    def show_function(self, model=None, train_data=None, test_data=None, title=''):
+    def show_function(self, model=None, train_data=None, test_data=None, title=""):
         mse = self.eval_risk(model=model, data=test_data)
-        t_low = test_data['t_low']
-        t = test_data['t']
+        t_low = test_data["t_low"]
+        t = test_data["t"]
         g_true = self.func(t_low)
         g_test_pred = model.forward(t).detach().cpu().numpy()
 
         order = np.argsort(t_low[:, 0])
         fig, ax = plt.subplots(1)
-        ax.plot(t_low[order], g_true[order], label='True function', color='y')
+        ax.plot(t_low[order], g_true[order], label="True function", color="y")
         if train_data is not None:
-            ax.scatter(train_data['t'], train_data['y'], label='Data', s=6)
+            ax.scatter(train_data["t"], train_data["y"], label="Data", s=6)
 
         if model is not None:
-            ax.plot(t_low[order], g_test_pred[order], label='Model prediction', color='r')
+            ax.plot(
+                t_low[order], g_test_pred[order], label="Model prediction", color="r"
+            )
         ax.legend()
-        ax.set_title(title + f' mse={mse:.1e}')
+        ax.set_title(title + f" mse={mse:.1e}")
         plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from cmr.estimation import estimation
 
-    exp = NetworkIVExperiment(ftype='abs')
+    exp = NetworkIVExperiment(ftype="abs")
     exp.prepare_dataset(n_train=10000, n_val=1000, n_test=10000)
     model = exp.get_model()
 
-    trained_model, stats = estimation(model=model,
-                                      train_data=exp.train_data,
-                                      moment_function=exp.moment_function,
-                                      estimation_method='KernelELNeural',
-                                      estimator_kwargs={'n_random_features': 5000,
-                                                        'batch_training': True,
-                                                        'batch_size': 200,
-                                                        'max_num_epochs': 100000,
-                                                        'max_no_improve': 20},
-                                      hyperparams=None,
-                                      normalize_moment_function=False,
-                                      validation_data=exp.val_data,
-                                      val_loss_func=exp.validation_loss,
-                                      verbose=True
-                                      )
+    trained_model, stats = estimation(
+        model=model,
+        train_data=exp.train_data,
+        moment_function=exp.moment_function,
+        estimation_method="KernelELNeural",
+        estimator_kwargs={
+            "n_random_features": 5000,
+            "batch_training": True,
+            "batch_size": 200,
+            "max_num_epochs": 100000,
+            "max_no_improve": 20,
+        },
+        hyperparams=None,
+        normalize_moment_function=False,
+        validation_data=exp.val_data,
+        val_loss_func=exp.validation_loss,
+        verbose=True,
+    )
     exp.show_function(model=model, test_data=exp.test_data, title="untrained")
     exp.show_function(model=trained_model, test_data=exp.test_data, title="trained")
-

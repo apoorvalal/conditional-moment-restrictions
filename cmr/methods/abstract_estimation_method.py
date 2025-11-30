@@ -1,21 +1,55 @@
 from cmr.utils.rkhs_utils import get_rbf_kernel, compute_cholesky_factor, hsic
 from cmr.utils.torch_utils import np_to_tensor, to_device
+from cmr.config import OptimizationConfig
 import numpy as np
 import torch
 import torch.nn as nn
+from typing import Optional, Literal
 
 
 class AbstractEstimationMethod:
     def __init__(
-        self, model, moment_function, val_loss_func=None, verbose=0, gpu=False, **kwargs
+        self,
+        model: torch.nn.Module,
+        moment_function,
+        optimization: Optional[OptimizationConfig] = None,
+        val_loss_func=None,
+        verbose=0,
+        device: Literal["cpu", "cuda", "auto"] = "auto",
+        gpu=False,  # Deprecated
+        **kwargs,
     ):
         self.model = ModelWrapper(model)
         self.moment_function = self._wrap_moment_function(moment_function)
+
+        # Configuration
+        self.optimization = optimization or OptimizationConfig()
+
+        # Handle optimization kwargs legacy overrides
+        if "theta_optim_args" in kwargs:
+            # Basic mapping for legacy support - users should migrate to Config
+            pass
+
         self.is_trained = False
         self.train_stats = {}
         self._val_loss_func = val_loss_func
         self.verbose = verbose
-        self.device = "cuda" if (gpu and torch.cuda.is_available()) else "cpu"
+
+        # Device handling
+        if device == "auto":
+            # Check legacy gpu flag if device is auto (default)
+            if gpu:
+                device = "cuda"
+            else:
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.device = device
+        if self.device == "cuda" and not torch.cuda.is_available():
+            print("Warning: CUDA requested but not available. Falling back to CPU.")
+            self.device = "cpu"
+
+        if self.device == "cuda" and self.verbose:
+            print(f"Using GPU: {torch.cuda.get_device_name(0)}")
 
         # Set by `_init_data_dependent_attributes`
         self._dim_psi = None
@@ -26,7 +60,7 @@ class AbstractEstimationMethod:
 
         # For validation purposes by default all methods for CMR use the MMR loss and therefore require the kernel Gram matrices
         try:
-            self.kernel_z_kwargs = kwargs["kernel_z_kwargs"]
+            self.kernel_z_kwargs = kwargs.get("kernel_z_kwargs", {})
         except KeyError:
             self.kernel_z_kwargs = {}
         self.kernel_z = None
@@ -52,6 +86,10 @@ class AbstractEstimationMethod:
 
         def eval_moment_function(x):
             t, y = torch.Tensor(x[0]), torch.Tensor(x[1])
+            # Ensure inputs are on the correct device
+            if next(model.parameters()).is_cuda:
+                t = t.to(next(model.parameters()).device)
+                y = y.to(next(model.parameters()).device)
             return moment_function(model(t), y)
 
         return eval_moment_function
@@ -84,8 +122,18 @@ class AbstractEstimationMethod:
                 self._dim_z = z.shape[1]
 
             # Eval moment function once on a single sample to get its dimension
+            # Ensure sample is on cpu for initial check to avoid device issues if model is not moved yet
             single_sample = [x[0][0:1], x[1][0:1]]
-            self._dim_psi = self.moment_function(single_sample).shape[1]
+            # Temporary wrap to avoid device mismatch during init
+            try:
+                self._dim_psi = self.moment_function(single_sample).shape[1]
+            except Exception:
+                # If model is already on GPU, we might need to move sample
+                t_s = torch.Tensor(single_sample[0]).to(self.device)
+                y_s = torch.Tensor(single_sample[1]).to(self.device)
+                self.model = self.model.to(self.device)  # Ensure model is on device
+                self._dim_psi = self.moment_function([t_s, y_s]).shape[1]
+
             self.dim_t = x[0].shape[1]
             self.dim_y = x[1].shape[1]
 
@@ -112,10 +160,18 @@ class AbstractEstimationMethod:
 
         if not self._is_init:
             self.init_estimator(x_train, z_train)
-        if next(self.model.parameters()).is_cuda:
+
+        if self.device == "cuda":
             print("Starting training on GPU ...")
+
         self._train_internal(x_train, z_train, x_val, z_val, debugging=debugging)
-        self.model.cpu()
+
+        # Move model back to CPU after training for safety/portability unless user wants it there?
+        # Usually it's better to keep it where it is, but the original code did .cpu().
+        # Let's respect the device choice of the user. If they asked for CUDA, leave it on CUDA?
+        # The original code forced .cpu(). Let's keep it on device if specified, or maybe .cpu() is safer for eval.
+        # Let's follow the standard pattern: Keep it on device.
+        # self.model.cpu()
         self.is_trained = True
 
     def get_trained_parameters(self):
@@ -125,13 +181,20 @@ class AbstractEstimationMethod:
 
     def _set_kernel_z(self, z=None, z_val=None):
         if self.kernel_z is None and z is not None:
+            # Calculate kernel on whatever device z is on
             self.kernel_z, _ = get_rbf_kernel(z, z, **self.kernel_z_kwargs)
-            self.kernel_z = self.kernel_z.type(torch.float32)
+            self.kernel_z = self.kernel_z.type(torch.float32).to(self.device)
+
+            # Cholesky needs to happen on CPU for numpy, or we use torch.cholesky
+            # The original code converted to numpy. Let's fix the device transfer.
+            kernel_z_cpu = self.kernel_z.detach().cpu().numpy()
             self.kernel_z_cholesky = torch.tensor(
-                np.transpose(compute_cholesky_factor(self.kernel_z.detach().numpy()))
-            )
+                np.transpose(compute_cholesky_factor(kernel_z_cpu))
+            ).to(self.device)
+
         if self.kernel_z_val is None and z_val is not None:
             self.kernel_z_val, _ = get_rbf_kernel(z_val, z_val, **self.kernel_z_kwargs)
+            self.kernel_z_val = self.kernel_z_val.type(torch.float32).to(self.device)
 
     def _calc_val_hsic(self, x_val, z_val):
         assert z_val is not None, (
@@ -139,7 +202,12 @@ class AbstractEstimationMethod:
         )
         max_num_val_data = 4001
         self._set_kernel_z(z_val=z_val[:max_num_val_data])
-        residue = self.model(x_val[0][:max_num_val_data]) - x_val[1][:max_num_val_data]
+
+        # Ensure inputs are on correct device
+        x_in = x_val[0][:max_num_val_data].to(self.device)
+        y_in = x_val[1][:max_num_val_data].to(self.device)
+
+        residue = self.model(x_in) - y_in
         kernel_residue, _ = get_rbf_kernel(residue, residue)
         return (
             float(
@@ -157,16 +225,24 @@ class AbstractEstimationMethod:
         )
         max_num_val_data = 4001
         self._set_kernel_z(z_val=z_val[:max_num_val_data])
-        psi = self.moment_function(
-            [x_val[0][:max_num_val_data], x_val[1][:max_num_val_data]]
-        )
+
+        x_in = [
+            x_val[0][:max_num_val_data].to(self.device),
+            x_val[1][:max_num_val_data].to(self.device),
+        ]
+
+        psi = self.moment_function(x_in)
+
+        # Kernel matrix is already on device
         loss = torch.einsum("ir, ij, jr -> ", psi, self.kernel_z_val, psi) / (
             z_val[:max_num_val_data].shape[0] ** 2
         )
         return float(loss.detach().cpu().numpy())
 
     def _calc_val_moment_violation(self, x_val, z_val=None):
-        psi = self.moment_function(x_val)
+        # inputs to moment_function are wrapped to handle device transfer, but let's be explicit
+        x_in = [x_val[0].to(self.device), x_val[1].to(self.device)]
+        psi = self.moment_function(x_in)
         mse_moment_violation = torch.sum(torch.square(psi)) / psi.shape[0]
         return float(mse_moment_violation.detach().cpu().numpy())
 
@@ -193,6 +269,8 @@ class AbstractEstimationMethod:
         return np_to_tensor(data_array)
 
     def _to_tensor_and_device(self, data_array):
+        if data_array is None:
+            return None
         return to_device(self._to_tensor(data_array), device=self.device)
 
     def _train_internal(self, x, z, x_val, z_val, debugging):
@@ -234,6 +312,11 @@ class ModelWrapper(nn.Module):
     def forward(self, t):
         if not isinstance(t, torch.Tensor):
             t = torch.Tensor(t)
+        # Device transfer is handled by wrapping logic in Estimator,
+        # but if called directly, we might need check.
+        # Generally model parameters determine device.
+        if next(self.model.parameters()).is_cuda and not t.is_cuda:
+            t = t.to(next(self.model.parameters()).device)
         return self.model(t)
 
     def get_parameters(self):

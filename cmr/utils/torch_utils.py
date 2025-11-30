@@ -34,7 +34,7 @@ def torch_to_float(tensor):
 
 
 def tensor_to_np(tensor_array):
-    if type(tensor_array) == list or type(tensor_array) == tuple:
+    if isinstance(tensor_array, (list, tuple)):
         np_list = []
         for element in tensor_array:
             if isinstance(element, np.ndarray) or element is None:
@@ -54,7 +54,7 @@ def tensor_to_np(tensor_array):
 def np_to_tensor(data_array):
     if data_array is None:
         return None
-    if type(data_array) == list:
+    if isinstance(data_array, list):
         tensor_list = []
         for element in data_array:
             if isinstance(element, torch.Tensor) or element is None:
@@ -74,7 +74,7 @@ def np_to_tensor(data_array):
 def to_device(data_tensor, device):
     if data_tensor is None:
         return None
-    if type(data_tensor) == list:
+    if isinstance(data_tensor, list):
         tensor_list = []
         for element in data_tensor:
             tensor_list.append(element.to(device))

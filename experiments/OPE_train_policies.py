@@ -1,6 +1,7 @@
 """
 Train policy on an environment and save a behavioral and target policy for OPE.
 """
+
 import yaml
 import argparse
 from pathlib import Path
@@ -10,28 +11,28 @@ from stable_baselines3.common.env_util import make_vec_env
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--env', type=str, default='Pendulum-v1')
-parser.add_argument('--algo', type=str, default='ppo')
+parser.add_argument("--env", type=str, default="Pendulum-v1")
+parser.add_argument("--algo", type=str, default="ppo")
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    if args.algo != 'ppo':
+    if args.algo != "ppo":
         raise ValueError("Do not support algorithms other than PPO currently.")
-    algo_file = Path(__file__).parent / 'ope_data/{}.yml'.format(args.algo)
-    algo_param = yaml.load(algo_file.open('r+'), Loader=yaml.loader.SafeLoader)
+    algo_file = Path(__file__).parent / "ope_data/{}.yml".format(args.algo)
+    algo_param = yaml.load(algo_file.open("r+"), Loader=yaml.loader.SafeLoader)
     env_param = algo_param[args.env]
-    tsteps = env_param.pop('n_timesteps')
+    tsteps = env_param.pop("n_timesteps")
 
-    env = make_vec_env(args.env, n_envs=env_param.pop('n_envs'))
-    model = PPO(env_param.pop('policy'), env, verbose=1, **env_param)
+    env = make_vec_env(args.env, n_envs=env_param.pop("n_envs"))
+    model = PPO(env_param.pop("policy"), env, verbose=1, **env_param)
 
     mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100)
     print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
-    data_dir = Path(__file__).parent / 'ope_data'
+    data_dir = Path(__file__).parent / "ope_data"
     data_dir.mkdir(parents=True, exist_ok=True)
     model.learn(total_timesteps=50000)
-    model.save('ope_data/OPE_{}_behavioral'.format(args.algo))
+    model.save("ope_data/OPE_{}_behavioral".format(args.algo))
 
     model.learn(total_timesteps=75000)
     model.save("ope_data/OPE_{}_target".format(args.algo))

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>API_IMPROVEMENTS</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="/home/alal/Templates/boilerplate/lal-css.css" />
+</head>
+<body>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#api-design-proposal-for-cmr-library"
+id="toc-api-design-proposal-for-cmr-library">API Design Proposal for CMR
+Library</a>
+<ul>
+<li><a href="#core-principles" id="toc-core-principles">1. Core
+Principles</a></li>
+<li><a href="#configuration-objects" id="toc-configuration-objects">2.
+Configuration Objects</a></li>
+<li><a href="#unified-estimator-interface"
+id="toc-unified-estimator-interface">3. Unified Estimator
+Interface</a></li>
+<li><a href="#method-specific-implementations"
+id="toc-method-specific-implementations">4. Method-Specific
+Implementations</a></li>
+<li><a href="#factory-and-auto-configuration"
+id="toc-factory-and-auto-configuration">5. Factory and
+Auto-Configuration</a></li>
+<li><a href="#implementation-plan" id="toc-implementation-plan">6.
+Implementation Plan</a>
+<ul>
+<li><a href="#phase-1-fix-critical-bugs-immediate"
+id="toc-phase-1-fix-critical-bugs-immediate">Phase 1: Fix Critical Bugs
+(Immediate)</a></li>
+<li><a href="#phase-2-configuration-objects-short-term"
+id="toc-phase-2-configuration-objects-short-term">Phase 2: Configuration
+Objects (Short-term)</a></li>
+<li><a href="#phase-3-refactor-estimators-medium-term"
+id="toc-phase-3-refactor-estimators-medium-term">Phase 3: Refactor
+Estimators (Medium-term)</a></li>
+<li><a href="#phase-4-user-facing-api-long-term"
+id="toc-phase-4-user-facing-api-long-term">Phase 4: User-Facing API
+(Long-term)</a></li>
+</ul></li>
+<li><a href="#migration-guide" id="toc-migration-guide">7. Migration
+Guide</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="api-design-proposal-for-cmr-library">API Design Proposal for CMR
+Library</h1>
+<p>This document outlines a comprehensive plan to improve the API of the
+Conditional Moment Restrictions (CMR) library. The goal is to address
+the issues identified in <code>demo_quick.py</code> (parameter
+explosion, broken GPU support, inconsistent defaults, etc.) and provide
+a modern, type-safe, and user-friendly interface.</p>
+<h2 id="core-principles">1. Core Principles</h2>
+<ol type="1">
+<li><strong>Type Safety</strong>: Use Python type hints strictly.</li>
+<li><strong>Structured Configuration</strong>: Replace loose
+<code>**kwargs</code> with typed dataclasses.</li>
+<li><strong>Smart Defaults</strong>: Auto-detect hardware (GPU/CPU) and
+suggest hyperparameters based on data size.</li>
+<li><strong>Hierarchical Design</strong>: Separate method-specific
+parameters from optimization and architectural parameters.</li>
+</ol>
+<h2 id="configuration-objects">2. Configuration Objects</h2>
+<p>Instead of passing dozens of arguments to the estimator constructor,
+we will use structured configuration objects.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dataclasses <span class="im">import</span> dataclass, field</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional, List, Literal, Union, Callable</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> OptimizationConfig:</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Configuration for optimization.&quot;&quot;&quot;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    optimizer: Literal[<span class="st">&#39;adam&#39;</span>, <span class="st">&#39;oadam&#39;</span>, <span class="st">&#39;lbfgs&#39;</span>, <span class="st">&#39;oadam_gda&#39;</span>, <span class="st">&#39;sgd&#39;</span>] <span class="op">=</span> <span class="st">&#39;oadam_gda&#39;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    learning_rate: <span class="bu">float</span> <span class="op">=</span> <span class="fl">5e-4</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    max_epochs: <span class="bu">int</span> <span class="op">=</span> <span class="dv">3000</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    batch_size: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="va">None</span>  <span class="co"># None means full batch</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    early_stopping_patience: <span class="bu">int</span> <span class="op">=</span> <span class="dv">5</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    burn_in_epochs: <span class="bu">int</span> <span class="op">=</span> <span class="dv">5</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    eval_frequency: <span class="bu">int</span> <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> NetworkConfig:</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Configuration for neural networks (dual functions).&quot;&quot;&quot;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    hidden_layers: List[<span class="bu">int</span>] <span class="op">=</span> field(default_factory<span class="op">=</span><span class="kw">lambda</span>: [<span class="dv">50</span>, <span class="dv">30</span>, <span class="dv">20</span>])</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    activation: <span class="bu">str</span> <span class="op">=</span> <span class="st">&#39;leaky_relu&#39;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    regularization: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-2</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> KernelConfig:</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Configuration for kernel methods.&quot;&quot;&quot;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    kernel_type: Literal[<span class="st">&#39;rbf&#39;</span>, <span class="st">&#39;polynomial&#39;</span>, <span class="st">&#39;linear&#39;</span>] <span class="op">=</span> <span class="st">&#39;rbf&#39;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    bandwidth: Optional[<span class="bu">float</span>] <span class="op">=</span> <span class="va">None</span>  <span class="co"># None = auto (median heuristic)</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> KMMConfig:</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Configuration specific to KMM method.&quot;&quot;&quot;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    entropy_regularization: <span class="bu">float</span> <span class="op">=</span> <span class="fl">10.0</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    rkhs_regularization: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    n_random_features: <span class="bu">int</span> <span class="op">=</span> <span class="dv">2000</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    n_reference_samples: <span class="bu">int</span> <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    kde_bandwidth: <span class="bu">float</span> <span class="op">=</span> <span class="fl">0.3</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    reference_depends_on_z: <span class="bu">bool</span> <span class="op">=</span> <span class="va">True</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FGELConfig:</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Configuration specific to FGEL method.&quot;&quot;&quot;</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    divergence: Literal[<span class="st">&#39;chi2&#39;</span>, <span class="st">&#39;kl&#39;</span>, <span class="st">&#39;log&#39;</span>] <span class="op">=</span> <span class="st">&#39;chi2&#39;</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>    regularization: <span class="bu">float</span> <span class="op">=</span> <span class="fl">1e-2</span></span></code></pre></div>
+<h2 id="unified-estimator-interface">3. Unified Estimator Interface</h2>
+<p>The base <code>AbstractEstimationMethod</code> will be updated to
+accept these config objects.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> AbstractEstimationMethod:</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        model: torch.nn.Module,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        moment_function: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        optimization: Optional[OptimizationConfig] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        device: Literal[<span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;cuda&#39;</span>, <span class="st">&#39;auto&#39;</span>] <span class="op">=</span> <span class="st">&#39;auto&#39;</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        verbose: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="op">**</span>kwargs  <span class="co"># For backward compatibility only</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    ):</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.model <span class="op">=</span> model</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.moment_function <span class="op">=</span> moment_function</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.optimization <span class="op">=</span> optimization <span class="kw">or</span> OptimizationConfig()</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Smart device detection</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> device <span class="op">==</span> <span class="st">&#39;auto&#39;</span>:</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.device <span class="op">=</span> <span class="st">&#39;cuda&#39;</span> <span class="cf">if</span> torch.cuda.is_available() <span class="cf">else</span> <span class="st">&#39;cpu&#39;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="va">self</span>.device <span class="op">==</span> <span class="st">&#39;cuda&#39;</span>:</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>                <span class="bu">print</span>(<span class="ss">f&quot;Auto-detected GPU: </span><span class="sc">{</span>torch<span class="sc">.</span>cuda<span class="sc">.</span>get_device_name(<span class="dv">0</span>)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.device <span class="op">=</span> device</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.verbose <span class="op">=</span> verbose</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ... initialization ...</span></span></code></pre></div>
+<h2 id="method-specific-implementations">4. Method-Specific
+Implementations</h2>
+<p>Each method will have a clean <code>__init__</code> that takes
+specific configs.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> KMMNeural(AbstractEstimationMethod):</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        model: torch.nn.Module,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        moment_function: Callable,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        kmm_config: Optional[KMMConfig] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        dual_network: Optional[NetworkConfig] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        optimization: Optional[OptimizationConfig] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        device: Literal[<span class="st">&#39;cpu&#39;</span>, <span class="st">&#39;cuda&#39;</span>, <span class="st">&#39;auto&#39;</span>] <span class="op">=</span> <span class="st">&#39;auto&#39;</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        verbose: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    ):</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">super</span>().<span class="fu">__init__</span>(model, moment_function, optimization, device, verbose)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.config <span class="op">=</span> kmm_config <span class="kw">or</span> KMMConfig()</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.dual_network <span class="op">=</span> dual_network <span class="kw">or</span> NetworkConfig()</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># ... validation ...</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="va">self</span>.config.n_random_features <span class="op">&lt;</span> <span class="dv">1</span>:</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">ValueError</span>(<span class="st">&quot;n_random_features must be positive&quot;</span>)</span></code></pre></div>
+<h2 id="factory-and-auto-configuration">5. Factory and
+Auto-Configuration</h2>
+<p>A factory function will simplify usage for users who don’t want to
+configure everything manually.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> create_estimator(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    method: <span class="bu">str</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    model: torch.nn.Module,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    moment_function: Callable,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    train_data_size: <span class="bu">int</span>,</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    device: <span class="bu">str</span> <span class="op">=</span> <span class="st">&#39;auto&#39;</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">**</span>overrides</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>):</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Factory to create an estimator with smart defaults.&quot;&quot;&quot;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 1. Determine optimal configuration based on data size</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    opt_config <span class="op">=</span> OptimizationConfig()</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> train_data_size <span class="op">&lt;</span> <span class="dv">1000</span>:</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        opt_config.batch_size <span class="op">=</span> <span class="va">None</span>  <span class="co"># Full batch</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        opt_config.optimizer <span class="op">=</span> <span class="st">&#39;lbfgs&#39;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> train_data_size <span class="op">&gt;</span> <span class="dv">10000</span>:</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        opt_config.batch_size <span class="op">=</span> <span class="dv">500</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        opt_config.optimizer <span class="op">=</span> <span class="st">&#39;oadam_gda&#39;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># 2. Create specific configs based on method</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> method <span class="op">==</span> <span class="st">&#39;KMM-neural&#39;</span>:</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        est <span class="op">=</span> KMMNeural(</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>            model<span class="op">=</span>model,</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>            moment_function<span class="op">=</span>moment_function,</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>            optimization<span class="op">=</span>opt_config,</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>            device<span class="op">=</span>device,</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Apply overrides</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>            kmm_config<span class="op">=</span>KMMConfig(<span class="op">**</span>{k: v <span class="cf">for</span> k,v <span class="kw">in</span> overrides.items() <span class="cf">if</span> <span class="bu">hasattr</span>(KMMConfig, k)})</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ... handle other methods ...</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> est</span></code></pre></div>
+<h2 id="implementation-plan">6. Implementation Plan</h2>
+<h3 id="phase-1-fix-critical-bugs-immediate">Phase 1: Fix Critical Bugs
+(Immediate)</h3>
+<ul>
+<li><strong>GPU Support</strong>: Audit all <code>tensor.numpy()</code>
+calls and insert <code>.detach().cpu()</code> beforehand.</li>
+<li><strong>Device Handling</strong>: Ensure all created tensors
+(kernels, dual parameters) are created on <code>self.device</code>.</li>
+</ul>
+<h3 id="phase-2-configuration-objects-short-term">Phase 2: Configuration
+Objects (Short-term)</h3>
+<ul>
+<li>Define the dataclasses in <code>cmr/config.py</code>.</li>
+<li>Update <code>AbstractEstimationMethod</code> to use them (keeping
+<code>**kwargs</code> for compatibility).</li>
+</ul>
+<h3 id="phase-3-refactor-estimators-medium-term">Phase 3: Refactor
+Estimators (Medium-term)</h3>
+<ul>
+<li>Update <code>NeuralFGEL</code>, <code>KMMNeural</code>,
+<code>MMR</code>, etc., to accept config objects.</li>
+<li>Add proper type hints to all <code>__init__</code> methods.</li>
+</ul>
+<h3 id="phase-4-user-facing-api-long-term">Phase 4: User-Facing API
+(Long-term)</h3>
+<ul>
+<li>Implement <code>create_estimator</code> factory.</li>
+<li>Deprecate the old flat <code>**kwargs</code> style with
+warnings.</li>
+<li>Update documentation and examples.</li>
+</ul>
+<h2 id="migration-guide">7. Migration Guide</h2>
+<p>Users will transition from:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Old Style</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>est <span class="op">=</span> KMMNeural(model, fn, entropy_reg_param<span class="op">=</span><span class="dv">10</span>, batch_size<span class="op">=</span><span class="dv">100</span>, gpu<span class="op">=</span><span class="va">True</span>)</span></code></pre></div>
+<p>To:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># New Style (Explicit)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>est <span class="op">=</span> KMMNeural(</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    model, fn,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    kmm_config<span class="op">=</span>KMMConfig(entropy_regularization<span class="op">=</span><span class="dv">10</span>),</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    optimization<span class="op">=</span>OptimizationConfig(batch_size<span class="op">=</span><span class="dv">100</span>),</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span><span class="st">&#39;cuda&#39;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># OR New Style (Factory)</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>est <span class="op">=</span> create_estimator(<span class="st">&#39;KMM-neural&#39;</span>, model, fn, </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>                       entropy_regularization<span class="op">=</span><span class="dv">10</span>, batch_size<span class="op">=</span><span class="dv">100</span>)</span></code></pre></div>
+<p>This ensures both power users and beginners have a suitable
+interface.</p>
+</body>
+</html>

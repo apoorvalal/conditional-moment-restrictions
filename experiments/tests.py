@@ -17,24 +17,35 @@ def test_mr_estimator(estimation_method, n_train=200, n_runs=10, hyperparams=Non
     for _ in range(n_runs):
         exp.prepare_dataset(n_train=n_train, n_val=n_train, n_test=20000)
         model = exp.get_model()
-        trained_model, stats = estimation(model=model,
-                                          train_data=exp.train_data,
-                                          moment_function=exp.moment_function,
-                                          estimation_method=estimation_method,
-                                          estimator_kwargs=None,
-                                          hyperparams=hyperparams,
-                                          validation_data=exp.val_data,
-                                          val_loss_func=exp.validation_loss if hasattr(exp, "validation_loss") else None,
-                                          sweep_hparams=False,
-                                          verbose=True
-                                          )
+        trained_model, stats = estimation(
+            model=model,
+            train_data=exp.train_data,
+            moment_function=exp.moment_function,
+            estimation_method=estimation_method,
+            estimator_kwargs=None,
+            hyperparams=hyperparams,
+            validation_data=exp.val_data,
+            val_loss_func=exp.validation_loss
+            if hasattr(exp, "validation_loss")
+            else None,
+            sweep_hparams=False,
+            verbose=True,
+        )
 
         thetas.append(float(np.squeeze(trained_model.get_parameters())))
-        mses.append(np.sum(np.square(np.squeeze(trained_model.get_parameters()) - exp.poisson_param)))
+        mses.append(
+            np.sum(
+                np.square(
+                    np.squeeze(trained_model.get_parameters()) - exp.poisson_param
+                )
+            )
+        )
 
-    print(f'True parameter: {np.squeeze(exp.poisson_param)},\n'
-          f'Parameter estimates: {thetas} \n'
-          fr'MSE: {np.mean(mses)} $\pm$ {np.std(mses)}')
+    print(
+        f"True parameter: {np.squeeze(exp.poisson_param)},\n"
+        f"Parameter estimates: {thetas} \n"
+        rf"MSE: {np.mean(mses)} $\pm$ {np.std(mses)}"
+    )
 
 
 def test_cmr_estimator(estimation_method, n_train=200, n_runs=10, hyperparams=None):
@@ -48,19 +59,27 @@ def test_cmr_estimator(estimation_method, n_train=200, n_runs=10, hyperparams=No
     for _ in range(n_runs):
         exp.prepare_dataset(n_train=n_train, n_val=n_train, n_test=20000)
         model = exp.get_model()
-        trained_model, stats = estimation(model=model,
-                                          train_data=exp.train_data,
-                                          moment_function=exp.moment_function,
-                                          estimation_method=estimation_method,
-                                          estimator_kwargs=None, hyperparams=hyperparams,
-                                          validation_data=exp.val_data,
-                                          val_loss_func=exp.validation_loss if hasattr(exp, "validation_loss") else None,
-                                          sweep_hparams=False,
-                                          verbose=True
-                                          )
+        trained_model, stats = estimation(
+            model=model,
+            train_data=exp.train_data,
+            moment_function=exp.moment_function,
+            estimation_method=estimation_method,
+            estimator_kwargs=None,
+            hyperparams=hyperparams,
+            validation_data=exp.val_data,
+            val_loss_func=exp.validation_loss
+            if hasattr(exp, "validation_loss")
+            else None,
+            sweep_hparams=False,
+            verbose=True,
+        )
         thetas.append(float(np.squeeze(trained_model.get_parameters())))
-        mses.append(np.sum(np.square(np.squeeze(trained_model.get_parameters()) - exp.theta0)))
+        mses.append(
+            np.sum(np.square(np.squeeze(trained_model.get_parameters()) - exp.theta0))
+        )
 
-    print(f'True parameter: {np.squeeze(exp.theta0)},\n'
-          f'Parameter estimates: {thetas} \n'
-          fr'MSE: {np.mean(mses)} $\pm$ {np.std(mses)}')
+    print(
+        f"True parameter: {np.squeeze(exp.theta0)},\n"
+        f"Parameter estimates: {thetas} \n"
+        rf"MSE: {np.mean(mses)} $\pm$ {np.std(mses)}"
+    )

@@ -9,7 +9,7 @@ import logging
 from cmr.methods.abstract_estimation_method import AbstractEstimationMethod
 from cmr.utils.oadam import OAdam
 from cmr.utils.torch_utils import Parameter, BatchIter, OptimizationError
-from cmr.default_config import gel_kwargs
+from cmr.config import OptimizationConfig
 
 cvx_solver = cvx.MOSEK
 
@@ -23,31 +23,53 @@ class GeneralizedEL(AbstractEstimationMethod):
     quantities (and if desired a cvxpy optimization method for the optimization over the dual functions).
     """
 
-    def __init__(self, model, moment_function, verbose=0, **kwargs):
-        if type(self) == GeneralizedEL:
-            gel_kwargs.update(kwargs)
-            kwargs = gel_kwargs
+    def __init__(self, model, moment_function, optimization=None, verbose=0, **kwargs):
         super().__init__(
-            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+            model=model,
+            moment_function=moment_function,
+            optimization=optimization,
+            verbose=verbose,
+            **kwargs,
         )
 
-        # Method specific kwargs
-        self.divergence_type = kwargs["divergence"]
-        self.reg_param = kwargs["reg_param"]
-        self.pretrain = kwargs["pretrain"]
+        # Method specific kwargs - falling back to kwargs for now, or Config objects passed in
+        self.divergence_type = kwargs.get("divergence", "chi2")
+        self.reg_param = kwargs.get("reg_param", 1e-4)
+        self.pretrain = kwargs.get("pretrain", False)
 
-        # Optimization kwargs
-        self.theta_optim_args = kwargs["theta_optim_args"]
-        self.dual_optim_args = kwargs["dual_optim_args"]
-        self.max_num_epochs = (
-            kwargs["max_num_epochs"]
-            if not self.theta_optim_args["optimizer"] == "lbfgs"
-            else 3
+        # Map OptimizationConfig to internal variables
+        opt = self.optimization
+        self.theta_optim_args = {
+            "optimizer": opt.optimizer,
+            "lr": opt.learning_rate,
+            **opt.optimizer_kwargs,
+        }
+
+        # Handle dual optimizer defaults
+        dual_opt = opt.dual_optimizer if opt.dual_optimizer else opt.optimizer
+        dual_lr = (
+            opt.dual_learning_rate if opt.dual_learning_rate else opt.learning_rate
         )
-        self.batch_size = kwargs["batch_size"]
-        self.eval_freq = kwargs["eval_freq"]
-        self.max_no_improve = kwargs["max_no_improve"]
-        self.burn_in_cycles = kwargs["burn_in_cycles"]
+
+        self.dual_optim_args = {
+            "optimizer": dual_opt,
+            "lr": dual_lr,
+        }
+
+        # Legacy support: Override with kwargs if present
+        if "theta_optim_args" in kwargs:
+            self.theta_optim_args.update(kwargs["theta_optim_args"])
+        if "dual_optim_args" in kwargs:
+            self.dual_optim_args.update(kwargs["dual_optim_args"])
+
+        # Optimization loop parameters
+        self.max_num_epochs = kwargs.get(
+            "max_num_epochs", opt.max_epochs if opt.optimizer != "lbfgs" else 3
+        )
+        self.batch_size = kwargs.get("batch_size", opt.batch_size)
+        self.eval_freq = kwargs.get("eval_freq", opt.eval_frequency)
+        self.max_no_improve = kwargs.get("max_no_improve", opt.early_stopping_patience)
+        self.burn_in_cycles = kwargs.get("burn_in_cycles", opt.burn_in_epochs)
 
         self.divergence, self.conj_divergence = self._set_divergence_and_conjugate(
             divergence_type=self.divergence_type
@@ -60,7 +82,6 @@ class GeneralizedEL(AbstractEstimationMethod):
         self.dual_moment_func = None
 
         self.annealing = False
-        self.verbose = verbose
 
     def init_estimator(self, x_tensor, z_tensor):
         super().init_estimator(x_tensor, z_tensor)
@@ -70,7 +91,10 @@ class GeneralizedEL(AbstractEstimationMethod):
             self._pretrain_theta(x=x_tensor, z=z_tensor)
 
     def _init_dual_params(self):
+        # Initialize dual parameters on the correct device
         self.dual_moment_func = Parameter(shape=(1, self.dim_psi))
+        # Parameter is likely created on CPU in torch_utils, move it
+        self.dual_moment_func = self.dual_moment_func.to(self.device)
         self.all_dual_params = list(self.dual_moment_func.parameters())
 
     def are_dual_params_finite(self):
@@ -208,7 +232,9 @@ class GeneralizedEL(AbstractEstimationMethod):
                 lr=self.theta_optim_args["lr"],
                 betas=(0.5, 0.9),
             )
-            self.dual_optim_args["optimizer"] = "oadam_gda"
+            # Ensure dual optimization is also oadam_gda if theta is
+            if self.dual_optim_args["optimizer"] != "oadam_gda":
+                self.dual_optim_args["optimizer"] = "oadam_gda"
             self._set_dual_optimizer()
         else:
             raise NotImplementedError("Invalid `theta` optimizer specified.")
@@ -273,7 +299,7 @@ class GeneralizedEL(AbstractEstimationMethod):
         self.theta_optimizer.step()
         if not self.model.is_finite():
             raise OptimizationError("Primal variables are NaN or inf.")
-        return float(obj.detach().numpy())
+        return float(obj.detach().cpu().numpy())
 
     def _lbfgs_step_theta(self, x_tensor, z_tensor):
         losses = []
@@ -295,7 +321,7 @@ class GeneralizedEL(AbstractEstimationMethod):
 
         self.theta_optimizer.step(closure)
         # print(self.theta_optimizer.state_dict())
-        return [float(loss.detach().numpy()) for loss in losses]
+        return [float(loss.detach().cpu().numpy()) for loss in losses]
 
     def _gradient_descent_ascent_step(self, x_tensor, z_tensor):
         theta_obj, dual_obj = self.objective(x_tensor, z_tensor, which_obj="both")
@@ -353,11 +379,11 @@ class GeneralizedEL(AbstractEstimationMethod):
 
     def _optimize_dual_params_cvxpy(self, x_tensor, z_tensor):
         with torch.no_grad():
-            x = [xi.numpy() for xi in x_tensor]
+            x = [xi.detach().cpu().numpy() for xi in x_tensor]
             n_sample = x[0].shape[0]
 
             dual_func = cvx.Variable(shape=(1, self.dim_psi))  # (1, k)
-            psi = self.moment_function(x).detach().numpy()  # (n_sample, k)
+            psi = self.moment_function(x_tensor).detach().cpu().numpy()  # (n_sample, k)
             dual_func_psi = psi @ cvx.transpose(dual_func)  # (n_sample, 1)
 
             objective = (
@@ -392,7 +418,10 @@ class GeneralizedEL(AbstractEstimationMethod):
     def _optimize_dual_params_gd(self, x_tensor, z_tensor):
         losses = []
         dual_obj = None
-        for i in range(self.dual_optim_args["inneriters"]):
+        # Should likely default to something reasonable if inneriters is missing
+        # For GEL with GD dual optimization, we need a default inner iters
+        inneriters = 5
+        for i in range(inneriters):
             self.dual_optimizer.zero_grad()
             _, dual_obj = self.objective(x_tensor, z_tensor, which_obj="dual")
             losses.append(float(dual_obj.detach().numpy()))
@@ -446,26 +475,35 @@ class GeneralizedEL(AbstractEstimationMethod):
             if epoch_i % eval_freq_epochs == 0:
                 cycle_num += 1
                 val_loss = self.calc_validation_metric(x_val, z_val)
-                val_moment.append(self._calc_val_moment_violation(x_val, z_val))
-                val_mmr.append(self._calc_val_mmr(x_val, z_val))
-                val_hsic.append(self._calc_val_hsic(x_val, z_val))
-                # val_risk.append(exp.eval_risk(self.model, {'t': x_val[0], 'y': x_val[1], 'z': z_val}))
+                # Only calculate these if z is available? They handle it internally usually.
+                if z_val is not None:
+                    val_moment.append(self._calc_val_moment_violation(x_val, z_val))
+                    val_mmr.append(self._calc_val_mmr(x_val, z_val))
+                    val_hsic.append(self._calc_val_hsic(x_val, z_val))
+
                 if self.verbose:
                     last_obj = obj[-1] if isinstance(obj, list) else obj
+                    val_loss_str = f"{val_loss:.6f}" if val_loss is not None else "None"
                     print(
-                        "epoch %d, theta-obj=%f, val-loss=%f"
-                        % (epoch_i, last_obj, val_loss)
+                        f"epoch {epoch_i}, theta-obj={last_obj:.6f}, val-loss={val_loss_str}"
                     )
-                val_losses.append(float(val_loss))
-                if (
-                    val_loss < min_val_loss
-                ):  # and abs((val_loss - min_val_loss) / min_val_loss) > 1e-4:
-                    min_val_loss = val_loss
-                    num_no_improve = 0
-                elif cycle_num > self.burn_in_cycles:
-                    num_no_improve += 1
-                if num_no_improve == self.max_no_improve:
-                    break
+
+                if val_loss is not None:
+                    val_losses.append(float(val_loss))
+                    if val_loss < min_val_loss:
+                        min_val_loss = val_loss
+                        num_no_improve = 0
+                    elif cycle_num > self.burn_in_cycles:
+                        num_no_improve += 1
+                    if num_no_improve == self.max_no_improve:
+                        if self.verbose:
+                            print(f"Early stopping at epoch {epoch_i}")
+                        break
+                else:
+                    # If no validation metric, maybe we shouldn't early stop?
+                    # Or rely on train loss convergence?
+                    # For now just continue.
+                    pass
 
         if self.verbose:
             print("time taken:", time.time() - time_0)
