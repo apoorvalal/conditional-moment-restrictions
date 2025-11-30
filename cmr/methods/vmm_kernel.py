@@ -10,7 +10,9 @@ class KernelVMM(AbstractEstimationMethod):
     def __init__(self, model, moment_function, verbose=0, **kwargs):
         vmm_kernel_kwargs.update(kwargs)
         kwargs = vmm_kernel_kwargs
-        super().__init__(model=model, moment_function=moment_function, verbose=verbose, **kwargs)
+        super().__init__(
+            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+        )
         self.alpha = kwargs["reg_param"]
         self.num_iter = kwargs["num_iter"]
 
@@ -37,8 +39,9 @@ class KernelVMM(AbstractEstimationMethod):
             # obtain m matrix for this iteration, using current theta parameter
             m = self._to_tensor(self._calc_m_matrix(x, alpha))
             # re-optimize rho using LBFGS
-            optimizer = torch.optim.LBFGS(self.model.parameters(),
-                                          line_search_fn="strong_wolfe")
+            optimizer = torch.optim.LBFGS(
+                self.model.parameters(), line_search_fn="strong_wolfe"
+            )
 
             def closure():
                 optimizer.zero_grad()
@@ -47,6 +50,7 @@ class KernelVMM(AbstractEstimationMethod):
                 loss = 2.0 * torch.matmul(m_rho_x, psi_x)
                 loss.backward()
                 return loss
+
             optimizer.step(closure)
 
             if self.verbose and x_val is not None:
@@ -60,7 +64,7 @@ class KernelVMM(AbstractEstimationMethod):
         q = (k_z_m * psi_m.T.reshape(self.dim_psi, 1, n)).reshape(self.dim_psi * n, n)
         del psi_m
 
-        q = (q  @ q.T) / n
+        q = (q @ q.T) / n
         l = scipy.linalg.block_diag(*k_z_m)
         del k_z_m
         q += alpha * l
@@ -70,6 +74,7 @@ class KernelVMM(AbstractEstimationMethod):
             return l @ np.linalg.lstsq(q, l, rcond=None)[0]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from experiments.tests import test_cmr_estimator
-    test_cmr_estimator(estimation_method='VMM-kernel', n_runs=2)
+
+    test_cmr_estimator(estimation_method="VMM-kernel", n_runs=2)

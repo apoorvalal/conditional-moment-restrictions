@@ -39,6 +39,7 @@ class MultivariateBasis(AbstractBasis):
     """
     valid for multivariate Z
     """
+
     def __init__(self, basis_class_list, basis_args_list):
         self.basis_list = []
         for basis_class, basis_args in zip(basis_class_list, basis_args_list):
@@ -48,8 +49,9 @@ class MultivariateBasis(AbstractBasis):
     @staticmethod
     def product_basis_func(z, basis_func_tuple):
         assert z.shape[1] == len(basis_func_tuple)
-        outputs = np.stack([b(z[:, i].reshape(-1, 1))
-                            for i, b in enumerate(basis_func_tuple)], axis=0)
+        outputs = np.stack(
+            [b(z[:, i].reshape(-1, 1)) for i, b in enumerate(basis_func_tuple)], axis=0
+        )
         return outputs.prod(0)
 
     def _build_basis_functions(self, z_train):
@@ -58,8 +60,9 @@ class MultivariateBasis(AbstractBasis):
             b.setup(z_train)
             basis_func_list.append(b.get_basis_functions())
         for basis_func_tuple in product(*basis_func_list):
-            basis_func = partial(self.product_basis_func,
-                                 basis_func_tuple=basis_func_tuple)
+            basis_func = partial(
+                self.product_basis_func, basis_func_tuple=basis_func_tuple
+            )
             self.basis_functions.append(basis_func)
 
 
@@ -68,6 +71,7 @@ class CartesianProductBasis(AbstractBasis):
     takes sequence of Basis methods for each output dimension, and constructs
     cartesian product basis, for multi-output bases
     """
+
     def __init__(self, basis_class_list, basis_args_list):
         self.basis_list = []
         for basis_class, basis_args in zip(basis_class_list, basis_args_list):
@@ -84,8 +88,9 @@ class CartesianProductBasis(AbstractBasis):
             b.setup(z_train)
             basis_func_list.append(b.get_basis_functions())
         for basis_func_tuple in product(*basis_func_list):
-            basis_func = partial(self.cartesian_product_basis_func,
-                                 basis_func_tuple=basis_func_tuple)
+            basis_func = partial(
+                self.cartesian_product_basis_func, basis_func_tuple=basis_func_tuple
+            )
             self.basis_functions.append(basis_func)
 
 
@@ -93,6 +98,7 @@ class PolynomialSplineBasis(AbstractBasis):
     """
     only valid for univariate Z, and single output
     """
+
     def __init__(self, knots, degree):
         self.degree = degree
         self.knots = knots
@@ -107,10 +113,11 @@ class PolynomialSplineBasis(AbstractBasis):
     def _build_basis_functions(self, z_train):
         for d in range(self.degree + 1):
             for i in range(len(self.knots) - d - 1):
-                t = self.knots[i:i + d + 2]
+                t = self.knots[i : i + d + 2]
                 basis_element = BSpline.basis_element(t, extrapolate=False)
-                basis_func = partial(self.polynomial_spline_basis_func,
-                                     basis_element=basis_element)
+                basis_func = partial(
+                    self.polynomial_spline_basis_func, basis_element=basis_element
+                )
                 self.basis_functions.append(basis_func)
 
 
@@ -118,6 +125,7 @@ class CardinalPolynomialSplineBasis(PolynomialSplineBasis):
     """
     for cardinal basis, meaning knots are distinct and evenly spaced
     """
+
     def __init__(self, num_knots, degree, eps=1e-5):
         self.num_knots = num_knots
         self.degree = degree
@@ -127,26 +135,28 @@ class CardinalPolynomialSplineBasis(PolynomialSplineBasis):
     def _build_basis_functions(self, z_train):
         start = float(np.min(z_train)) - self.eps
         end = float(np.max(z_train)) + self.eps
-        self.knots = list(np.linspace(start=start, stop=end,
-                                      num=self.num_knots))
+        self.knots = list(np.linspace(start=start, stop=end, num=self.num_knots))
         PolynomialSplineBasis._build_basis_functions(self, z_train)
 
 
 class MultivariatePolynomialSplineBasis(MultivariateBasis):
     def __init__(self, num_knots, degree, z_dim, eps=1e-5):
         basis_class_list = [CardinalPolynomialSplineBasis for _ in range(z_dim)]
-        basis_args_list = [{"num_knots": num_knots, "degree": degree,
-                            "eps": eps} for _ in range(z_dim)]
-        MultivariateBasis.__init__(self, basis_class_list=basis_class_list,
-                                   basis_args_list=basis_args_list)
+        basis_args_list = [
+            {"num_knots": num_knots, "degree": degree, "eps": eps} for _ in range(z_dim)
+        ]
+        MultivariateBasis.__init__(
+            self, basis_class_list=basis_class_list, basis_args_list=basis_args_list
+        )
 
 
 class MultiOutputPolynomialSplineBasis(CartesianProductBasis):
     def __init__(self, num_knots, degree, z_dim, num_out, eps=1e-5):
-        basis_class_list = [MultivariatePolynomialSplineBasis
-                            for _ in range(num_out)]
-        basis_args_list = [{"num_knots": num_knots, "degree": degree,
-                            "z_dim": z_dim, "eps": eps} for _ in range(num_out)]
-        CartesianProductBasis.__init__(self, basis_class_list=basis_class_list,
-                                       basis_args_list=basis_args_list)
-
+        basis_class_list = [MultivariatePolynomialSplineBasis for _ in range(num_out)]
+        basis_args_list = [
+            {"num_knots": num_knots, "degree": degree, "z_dim": z_dim, "eps": eps}
+            for _ in range(num_out)
+        ]
+        CartesianProductBasis.__init__(
+            self, basis_class_list=basis_class_list, basis_args_list=basis_args_list
+        )

@@ -22,7 +22,9 @@ class KMM(GeneralizedEL):
         if type(self) == KMM:
             kmm_kwargs.update(kwargs)
             kwargs = kmm_kwargs
-        super().__init__(model=model, moment_function=moment_function, verbose=verbose, **kwargs)
+        super().__init__(
+            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+        )
 
         self.entropy_reg_param = kwargs["entropy_reg_param"]
         self.kernel_x_kwargs = kwargs["kernel_x_kwargs"]
@@ -40,22 +42,33 @@ class KMM(GeneralizedEL):
         x_np, z_np = tensor_to_np(x), tensor_to_np(z)
         kernel_t, _ = get_rbf_kernel(x_np[0], x_np[0], **self.kernel_x_kwargs)
         kernel_y, _ = get_rbf_kernel(x_np[1], x_np[1], **self.kernel_x_kwargs)
-        kernel_z, _ = get_rbf_kernel(z_np, z_np, **self.kernel_z_kwargs) if z_np is not None else (1.0, 1.0)
+        kernel_z, _ = (
+            get_rbf_kernel(z_np, z_np, **self.kernel_z_kwargs)
+            if z_np is not None
+            else (1.0, 1.0)
+        )
         self.kernel_x = torch.Tensor(kernel_t * kernel_y * kernel_z).to(self.device)
 
     def _init_rff(self, x, z):
         x_np, z_np = tensor_to_np(x), tensor_to_np(z)
         sigma_t = np.sqrt(0.5 * np.median(calc_sq_dist(x_np[0], x_np[0], numpy=True)))
         sigma_y = np.sqrt(0.5 * np.median(calc_sq_dist(x_np[1], x_np[1], numpy=True)))
-        sigma_z = np.sqrt(0.5 * np.median(calc_sq_dist(z_np, z_np, numpy=True))) if z_np is not None else 1.0
+        sigma_z = (
+            np.sqrt(0.5 * np.median(calc_sq_dist(z_np, z_np, numpy=True)))
+            if z_np is not None
+            else 1.0
+        )
 
-        self._eval_rff_t = rff.layers.GaussianEncoding(sigma=sigma_t, input_size=x[0].shape[1],
-                                                       encoded_size=self.n_rff // 2).to(self.device)
-        self._eval_rff_y = rff.layers.GaussianEncoding(sigma=sigma_y, input_size=x[1].shape[1],
-                                                       encoded_size=self.n_rff // 2).to(self.device)
+        self._eval_rff_t = rff.layers.GaussianEncoding(
+            sigma=sigma_t, input_size=x[0].shape[1], encoded_size=self.n_rff // 2
+        ).to(self.device)
+        self._eval_rff_y = rff.layers.GaussianEncoding(
+            sigma=sigma_y, input_size=x[1].shape[1], encoded_size=self.n_rff // 2
+        ).to(self.device)
         if z is not None and self.rkhs_func_z_dependent:
-            self._eval_rff_z = rff.layers.GaussianEncoding(sigma=sigma_z, input_size=z.shape[1],
-                                                           encoded_size=self.n_rff // 2).to(self.device)
+            self._eval_rff_z = rff.layers.GaussianEncoding(
+                sigma=sigma_z, input_size=z.shape[1], encoded_size=self.n_rff // 2
+            ).to(self.device)
         else:
             self._eval_rff_z = lambda arg: 1.0
 
@@ -68,15 +81,24 @@ class KMM(GeneralizedEL):
     def eval_rkhs_func(self, x, z):
         if self.n_rff:
             # print([param.is_cuda for param in self.all_dual_params], self.rkhs_func.params.is_cuda, x[0].is_cuda, z.is_cuda, self.eval_rff(x, z).is_cuda)
-            return torch.einsum('ij, ki -> kj', self.rkhs_func.params, self.eval_rff(x, z))
+            return torch.einsum(
+                "ij, ki -> kj", self.rkhs_func.params, self.eval_rff(x, z)
+            )
         else:
-            return torch.einsum('ij, ki -> kj', self.rkhs_func.params, self.kernel_x)
+            return torch.einsum("ij, ki -> kj", self.rkhs_func.params, self.kernel_x)
 
     def rkhs_norm_sq(self):
         if self.n_rff:
-            return torch.einsum('ij, ij ->', self.rkhs_func.params, self.rkhs_func.params)
+            return torch.einsum(
+                "ij, ij ->", self.rkhs_func.params, self.rkhs_func.params
+            )
         else:
-            return torch.einsum('ir, ij, jr ->', self.rkhs_func.params, self.kernel_x, self.rkhs_func.params)
+            return torch.einsum(
+                "ir, ij, jr ->",
+                self.rkhs_func.params,
+                self.kernel_x,
+                self.rkhs_func.params,
+            )
 
     def _init_dual_params(self):
         self.dual_moment_func = Parameter(shape=(1, self.dim_psi)).to(self.device)
@@ -84,18 +106,27 @@ class KMM(GeneralizedEL):
         if self.n_rff:
             self.rkhs_func = Parameter(shape=(self.n_rff, 1)).to(self.device)
         else:
-            self.rkhs_func = Parameter(shape=(self.kernel_x.shape[0], 1)).to(self.device)
-        self.all_dual_params = (list(self.dual_moment_func.parameters()) + list(self.dual_normalization.parameters())
-                                + list(self.rkhs_func.parameters()))
+            self.rkhs_func = Parameter(shape=(self.kernel_x.shape[0], 1)).to(
+                self.device
+            )
+        self.all_dual_params = (
+            list(self.dual_moment_func.parameters())
+            + list(self.dual_normalization.parameters())
+            + list(self.rkhs_func.parameters())
+        )
 
     def init_estimator(self, x_tensor, z_tensor):
         self._init_reference_distribution(x_tensor, z_tensor)
         if self.n_rff:
             self._init_rff(x_tensor, z_tensor)
         else:
-            print('Using full batch kernel Gram matrix version ...')
-            assert self.batch_size is None, 'Cannot use mini-batch optimization with representer theorem version.'
-            assert self.n_reference_samples is None, 'Cannot use reference samples with representer theorem version.'
+            print("Using full batch kernel Gram matrix version ...")
+            assert self.batch_size is None, (
+                "Cannot use mini-batch optimization with representer theorem version."
+            )
+            assert self.n_reference_samples is None, (
+                "Cannot use reference samples with representer theorem version."
+            )
             self._set_kernel_x(x_tensor, z_tensor)
         super().init_estimator(x_tensor=x_tensor, z_tensor=z_tensor)
 
@@ -112,14 +143,18 @@ class KMM(GeneralizedEL):
         if self.n_reference_samples is None or self.n_reference_samples == 0:
             return x, z
         xz_sampled = self.kde.sample(n_samples=self.n_reference_samples)
-        t_sampled = np_to_tensor(xz_sampled[:, :self.dim_t])
-        y_sampled = np_to_tensor(xz_sampled[:, self.dim_t:(self.dim_t + self.dim_y)])
+        t_sampled = np_to_tensor(xz_sampled[:, : self.dim_t])
+        y_sampled = np_to_tensor(xz_sampled[:, self.dim_t : (self.dim_t + self.dim_y)])
         if self.t_as_instrument:
             z_sampled = t_sampled
         else:
-            z_sampled = np_to_tensor(xz_sampled[:, (self.dim_t + self.dim_y):])
+            z_sampled = np_to_tensor(xz_sampled[:, (self.dim_t + self.dim_y) :])
 
-        t_sampled, y_sampled, z_sampled = t_sampled.to(self.device), y_sampled.to(self.device), z_sampled.to(self.device)
+        t_sampled, y_sampled, z_sampled = (
+            t_sampled.to(self.device),
+            y_sampled.to(self.device),
+            z_sampled.to(self.device),
+        )
 
         t_total = torch.concat((x[0], t_sampled), dim=0)
         y_total = torch.concat((x[1], y_sampled), dim=0)
@@ -182,10 +217,11 @@ class KMM(GeneralizedEL):
     #         self.z_samples = torch.vstack((zz, xz_samples[:, -z.shape[1]:]))
 
     """------------- Objective of MMD-GEL ------------"""
-    def objective(self, x, z, which_obj='both', *args, **kwargs):
+
+    def objective(self, x, z, which_obj="both", *args, **kwargs):
         """Modifies `objective` of base class to include sampling from reference distribution"""
         self.check_init()
-        assert which_obj in ['both', 'theta', 'dual']
+        assert which_obj in ["both", "theta", "dual"]
         x_reference, z_reference = self.append_reference_samples(x, z)
         return self._objective(x, z, x_ref=x_reference, z_ref=z_reference)
 
@@ -193,45 +229,74 @@ class KMM(GeneralizedEL):
         rkhs_func_empirical = self.eval_rkhs_func(x, z)
         rkhs_func_reference = self.eval_rkhs_func(x_ref, z_ref)
 
-        conj_div_arg = (rkhs_func_reference + self.dual_normalization.params
-                        - torch.sum(self._eval_dual_moment_func(z_ref) * self.moment_function(x_ref),
-                                    dim=1, keepdim=True))
-        objective = (torch.mean(rkhs_func_empirical) + self.dual_normalization.params - 1 / 2 * self.rkhs_reg_param * self.rkhs_norm_sq()
-                     - self.entropy_reg_param * torch.mean(self.conj_divergence(1 / self.entropy_reg_param * conj_div_arg)))
+        conj_div_arg = (
+            rkhs_func_reference
+            + self.dual_normalization.params
+            - torch.sum(
+                self._eval_dual_moment_func(z_ref) * self.moment_function(x_ref),
+                dim=1,
+                keepdim=True,
+            )
+        )
+        objective = (
+            torch.mean(rkhs_func_empirical)
+            + self.dual_normalization.params
+            - 1 / 2 * self.rkhs_reg_param * self.rkhs_norm_sq()
+            - self.entropy_reg_param
+            * torch.mean(
+                self.conj_divergence(1 / self.entropy_reg_param * conj_div_arg)
+            )
+        )
         return objective, -objective
 
     """--------------------- Optimization methods for dual_func ---------------------"""
+
     def _optimize_dual_params_cvxpy(self, x_tensor, z_tensor):
         self.check_init()
         with torch.no_grad():
             x = [xi.numpy() for xi in x_tensor]
             n_sample = x[0].shape[0]
 
-            dual_func = cvx.Variable(shape=(1, self.dim_psi))   # (1, k)
+            dual_func = cvx.Variable(shape=(1, self.dim_psi))  # (1, k)
             dual_normalization = cvx.Variable(shape=(1, 1))
             rkhs_func = cvx.Variable(shape=(n_sample, 1))
 
             kernel_x = self.kernel_x.detach().numpy()
-            psi = self.moment_function(x).detach().numpy()   # (n_sample, k)
+            psi = self.moment_function(x).detach().numpy()  # (n_sample, k)
 
-            dual_func_psi = psi @ cvx.transpose(dual_func)    # (n_sample, 1)
-            expected_rkhs_func = 1/n_sample * cvx.sum(kernel_x @ rkhs_func)
+            dual_func_psi = psi @ cvx.transpose(dual_func)  # (n_sample, 1)
+            expected_rkhs_func = 1 / n_sample * cvx.sum(kernel_x @ rkhs_func)
             if self.n_rff == 0:
-                rkhs_norm_sq = cvx.square(cvx.norm(cvx.transpose(rkhs_func) @ self.kernel_x_cholesky.detach().numpy())) #cvx.quad_form(rkhs_func, kernel_x)
+                rkhs_norm_sq = cvx.square(
+                    cvx.norm(
+                        cvx.transpose(rkhs_func)
+                        @ self.kernel_x_cholesky.detach().numpy()
+                    )
+                )  # cvx.quad_form(rkhs_func, kernel_x)
             elif self.n_rff > 0:
                 rkhs_norm_sq = cvx.square(cvx.norm(rkhs_func))
             else:
-                raise ValueError('Number of random features cannot be smaller than 0!')
-            objective = (expected_rkhs_func + dual_normalization - 1 / 2 * rkhs_norm_sq)
+                raise ValueError("Number of random features cannot be smaller than 0!")
+            objective = expected_rkhs_func + dual_normalization - 1 / 2 * rkhs_norm_sq
 
-            exponent = cvx.sum(kernel_x @ rkhs_func + dual_normalization - dual_func_psi, axis=1)
-            objective += - self.entropy_reg_param / n_sample * cvx.sum(cvx.exp(1 / self.entropy_reg_param * exponent))
+            exponent = cvx.sum(
+                kernel_x @ rkhs_func + dual_normalization - dual_func_psi, axis=1
+            )
+            objective += (
+                -self.entropy_reg_param
+                / n_sample
+                * cvx.sum(cvx.exp(1 / self.entropy_reg_param * exponent))
+            )
 
             problem = cvx.Problem(cvx.Maximize(objective))
             problem.solve(solver=cvx_solver, verbose=True)
 
-            if dual_normalization.value is None or dual_func.value is None or rkhs_func.value is None:
-                raise RuntimeError('Dual parameter optimization failed.')
+            if (
+                dual_normalization.value is None
+                or dual_func.value is None
+                or rkhs_func.value is None
+            ):
+                raise RuntimeError("Dual parameter optimization failed.")
 
             self.dual_moment_func.update_params(dual_func.value)
             self.rkhs_func.update_params(rkhs_func.value)
@@ -239,9 +304,10 @@ class KMM(GeneralizedEL):
         return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from experiments.tests import test_mr_estimator
-    test_mr_estimator(estimation_method='KMM', n_runs=2, n_train=200)
+
+    test_mr_estimator(estimation_method="KMM", n_runs=2, n_train=200)
 
     # np.random.seed(123485)
     # torch.random.manual_seed(12345)

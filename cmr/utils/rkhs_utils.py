@@ -7,20 +7,24 @@ from sklearn.kernel_approximation import RBFSampler
 def calc_sq_dist(x_1, x_2, numpy=True):
     n_1, n_2 = x_1.shape[0], x_2.shape[0]
     if numpy:
-        return cdist(x_1.reshape(n_1, -1), x_2.reshape(n_2, -1),
-                        metric="sqeuclidean")
+        return cdist(x_1.reshape(n_1, -1), x_2.reshape(n_2, -1), metric="sqeuclidean")
     else:
         if not torch.is_tensor(x_1):
             x_1 = torch.from_numpy(x_1).float()
             x_2 = torch.from_numpy(x_2).float()
-        return torch.cdist(torch.reshape(x_1, (n_1, -1)), torch.reshape(x_2, (n_2, -1))) ** 2
+        return (
+            torch.cdist(torch.reshape(x_1, (n_1, -1)), torch.reshape(x_2, (n_2, -1)))
+            ** 2
+        )
 
 
 def compute_cholesky_factor(kernel_matrix):
     try:
         sqrt_kernel_matrix = np.linalg.cholesky(kernel_matrix)
     except:
-        d, v = np.linalg.eigh(kernel_matrix)    # L == U*diag(d)*U'. the scipy function forces real eigs
+        d, v = np.linalg.eigh(
+            kernel_matrix
+        )  # L == U*diag(d)*U'. the scipy function forces real eigs
         d[np.where(d < 0)] = 0  # get rid of small eigs
         sqrt_kernel_matrix = v @ np.diag(np.sqrt(d))
     return sqrt_kernel_matrix
@@ -31,13 +35,12 @@ def get_rff(x, n_rff=1000, sigma=None, numpy=False):
         distsqr = calc_sq_dist(x, x, numpy=False)
         kernel_width = np.sqrt(0.5 * np.median(distsqr))
 
-        '''in sklearn, kernel is done by K(x, y) = exp(-gamma ||x-y||^2)'''
-        kernel_gamma = 1.0 / (2 * kernel_width ** 2)
+        """in sklearn, kernel is done by K(x, y) = exp(-gamma ||x-y||^2)"""
+        kernel_gamma = 1.0 / (2 * kernel_width**2)
     else:
-        kernel_gamma = 1.0 / (2 * sigma ** 2)
+        kernel_gamma = 1.0 / (2 * sigma**2)
 
-    rbf_features = RBFSampler(gamma=kernel_gamma,
-                              n_components=n_rff)
+    rbf_features = RBFSampler(gamma=kernel_gamma, n_components=n_rff)
     x = x.view(x.shape[0], -1)
     if isinstance(x, np.ndarray):
         x = x.reshape((x.shape[0], -1))
@@ -65,7 +68,7 @@ def get_rbf_kernel(x_1, x_2=None, sigma=None, numpy=False):
         sq_dist = calc_sq_dist(x_1, x_2, numpy=False)
         sigma = torch.median(sq_dist) ** 0.5
 
-    kernel_zz = torch.exp((-1 / (2 * sigma ** 2)) * sq_dist)
+    kernel_zz = torch.exp((-1 / (2 * sigma**2)) * sq_dist)
     if numpy:
         kernel_zz = kernel_zz.detach().numpy()
     return kernel_zz, sigma
@@ -94,7 +97,12 @@ def gaussian_kernel_matrix(x, sigma=1):
 
 
 def hsic(kernel_matrix_x, kernel_matrix_y):
-    m = kernel_matrix_x.shape[0]   # batch size
-    centering_matrix = torch.eye(m) - 1.0/m * torch.ones((m, m))
-    hsic_ = torch.trace(torch.mm(kernel_matrix_y, torch.mm(centering_matrix, torch.mm(kernel_matrix_x, centering_matrix)))) / ((m-1)**2)
+    m = kernel_matrix_x.shape[0]  # batch size
+    centering_matrix = torch.eye(m) - 1.0 / m * torch.ones((m, m))
+    hsic_ = torch.trace(
+        torch.mm(
+            kernel_matrix_y,
+            torch.mm(centering_matrix, torch.mm(kernel_matrix_x, centering_matrix)),
+        )
+    ) / ((m - 1) ** 2)
     return hsic_

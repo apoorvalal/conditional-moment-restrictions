@@ -10,12 +10,13 @@ cvx_solver = cvx.MOSEK
 
 
 class KernelFGEL(GeneralizedEL):
-
     def __init__(self, model, moment_function, verbose=None, **kwargs):
         if type(self) == KernelFGEL:
             fgel_kernel_kwargs.update(kwargs)
             kwargs = fgel_kernel_kwargs
-        super().__init__(model=model, moment_function=moment_function, verbose=verbose, **kwargs)
+        super().__init__(
+            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+        )
 
     def _init_dual_params(self):
         self.dual_moment_func = Parameter(shape=(self.kernel_z.shape[0], self.dim_psi))
@@ -27,15 +28,20 @@ class KernelFGEL(GeneralizedEL):
         super().init_estimator(x_tensor=x_tensor, z_tensor=z_tensor)
 
     def get_rkhs_norm_sq(self):
-        return torch.einsum('ir, ij, jr ->', self.dual_moment_func.params, self.kernel_z, self.dual_moment_func.params)
+        return torch.einsum(
+            "ir, ij, jr ->",
+            self.dual_moment_func.params,
+            self.kernel_z,
+            self.dual_moment_func.params,
+        )
 
     def _eval_dual_moment_func(self, z):
-        return torch.einsum('ij, ik -> kj', self.dual_moment_func.params, self.kernel_z)
+        return torch.einsum("ij, ik -> kj", self.dual_moment_func.params, self.kernel_z)
 
     def _objective(self, x, z, *args, **kwargs):
         objective, _ = super()._objective(x, z, *args, **kwargs)
-        regularizer = self.reg_param/2 * self.get_rkhs_norm_sq()
-        return objective, - objective + regularizer
+        regularizer = self.reg_param / 2 * self.get_rkhs_norm_sq()
+        return objective, -objective + regularizer
 
     # def objective(self, x, z, *args, **kwargs):
     #     dual_func_k_psi = torch.einsum('jr, ji, ir -> i', self.dual_func.params, self.kernel_z, self.moment_function(x))
@@ -56,11 +62,21 @@ class KernelFGEL(GeneralizedEL):
                 psi = self.moment_function(x).detach().numpy()
                 dual_func_psi = np.zeros(n_sample)
                 for k in range(self.dim_psi):
-                    dual_func_psi += dual_func[:, k] @ self.kernel_z.detach().numpy() @ cvx.diag(psi[:, k])
+                    dual_func_psi += (
+                        dual_func[:, k]
+                        @ self.kernel_z.detach().numpy()
+                        @ cvx.diag(psi[:, k])
+                    )
 
-                objective = (1 / n_sample * cvx.sum(self.conj_divergence(dual_func_psi, cvxpy=True))
-                             - self.reg_param / 2 * cvx.square(cvx.norm(cvx.transpose(dual_func) @ self.kernel_z_cholesky.detach().numpy())))
-                if self.divergence_type == 'log':
+                objective = 1 / n_sample * cvx.sum(
+                    self.conj_divergence(dual_func_psi, cvxpy=True)
+                ) - self.reg_param / 2 * cvx.square(
+                    cvx.norm(
+                        cvx.transpose(dual_func)
+                        @ self.kernel_z_cholesky.detach().numpy()
+                    )
+                )
+                if self.divergence_type == "log":
                     constraint = [dual_func_psi <= 1 - n_sample]
                 else:
                     constraint = []
@@ -68,13 +84,28 @@ class KernelFGEL(GeneralizedEL):
                 problem.solve(solver=cvx_solver, verbose=False)
                 self.dual_moment_func.update_params(dual_func.value)
             except:
-                print('CVXPY failed. Using old dual_func value')
+                print("CVXPY failed. Using old dual_func value")
         return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from experiments.tests import test_cmr_estimator
-    test_cmr_estimator(estimation_method='FGEL-kernel', n_runs=1, n_train=100, hyperparams={'divergence': ['chi2']})
-    test_cmr_estimator(estimation_method='FGEL-kernel', n_runs=1, n_train=100, hyperparams={'divergence': ['kl']})
-    test_cmr_estimator(estimation_method='FGEL-kernel', n_runs=1, n_train=100, hyperparams={'divergence': ['log']})
 
+    test_cmr_estimator(
+        estimation_method="FGEL-kernel",
+        n_runs=1,
+        n_train=100,
+        hyperparams={"divergence": ["chi2"]},
+    )
+    test_cmr_estimator(
+        estimation_method="FGEL-kernel",
+        n_runs=1,
+        n_train=100,
+        hyperparams={"divergence": ["kl"]},
+    )
+    test_cmr_estimator(
+        estimation_method="FGEL-kernel",
+        n_runs=1,
+        n_train=100,
+        hyperparams={"divergence": ["log"]},
+    )

@@ -9,20 +9,28 @@ cvx_solver = cvx.MOSEK
 
 
 class KMMNeural(KMM):
-
     def __init__(self, model, moment_function, verbose=0, **kwargs):
         if type(self) == KMMNeural:
             kmm_neural_kwargs.update(kwargs)
             kwargs = kmm_neural_kwargs
-        super().__init__(model=model, moment_function=moment_function, verbose=verbose,
-                         **kwargs)
+        super().__init__(
+            model=model, moment_function=moment_function, verbose=verbose, **kwargs
+        )
         self.dual_func_network_kwargs_custom = kwargs["dual_func_network_kwargs"]
 
     def _init_dual_params(self):
         super()._init_dual_params()
-        dual_func_network_kwargs = self._update_default_dual_func_network_kwargs(self.dual_func_network_kwargs_custom)
-        self.dual_moment_func = ModularMLPModel(**dual_func_network_kwargs).to(self.device)
-        self.all_dual_params = list(self.dual_moment_func.parameters()) + list(self.dual_normalization.parameters()) + list(self.rkhs_func.parameters())
+        dual_func_network_kwargs = self._update_default_dual_func_network_kwargs(
+            self.dual_func_network_kwargs_custom
+        )
+        self.dual_moment_func = ModularMLPModel(**dual_func_network_kwargs).to(
+            self.device
+        )
+        self.all_dual_params = (
+            list(self.dual_moment_func.parameters())
+            + list(self.dual_normalization.parameters())
+            + list(self.rkhs_func.parameters())
+        )
 
     # def _setup_training(self):
     #     if self.batch_size:
@@ -51,19 +59,24 @@ class KMMNeural(KMM):
         return dual_func_network_kwargs_default
 
     """------------- Objective of Kernel-EL-Neural ------------"""
+
     def _eval_dual_moment_func(self, z):
         return self.dual_moment_func(z)
 
     def _objective(self, x, z, x_ref=None, z_ref=None, *args, **kwargs):
-        objective, _ = super()._objective(x, z, x_ref=x_ref, z_ref=z_ref, *args, **kwargs)
+        objective, _ = super()._objective(
+            x, z, x_ref=x_ref, z_ref=z_ref, *args, **kwargs
+        )
         if self.reg_param > 0:
-            regularizer = self.reg_param * torch.mean(self._eval_dual_moment_func(z_ref) ** 2)
+            regularizer = self.reg_param * torch.mean(
+                self._eval_dual_moment_func(z_ref) ** 2
+            )
         else:
             regularizer = 0
         return objective, -objective + regularizer
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # from experiments.tests import test_cmr_estimator
     # test_cmr_estimator(estimation_method='KMM-neural', n_runs=1, n_train=30, hyperparams=None)
     # test_cmr_estimator(estimation_method='RF-KMM', n_runs=1, n_train=30, hyperparams=None)
@@ -76,7 +89,14 @@ if __name__ == '__main__':
 
     exp = HeteroskedasticNoiseExperiment(theta=[1.4], noise=2.0, heteroskedastic=True)
     exp.prepare_dataset(n_train=100, n_val=100, n_test=20000)
-    estimator = KMMNeural(model=exp.get_model(), moment_function=exp.moment_function, entropy_reg_param=10,
-                          n_random_features=1000, n_reference_samples=0, verbose=2, batch_size=50)
+    estimator = KMMNeural(
+        model=exp.get_model(),
+        moment_function=exp.moment_function,
+        entropy_reg_param=10,
+        n_random_features=1000,
+        n_reference_samples=0,
+        verbose=2,
+        batch_size=50,
+    )
     estimator.train(exp.train_data, exp.val_data)
     print(estimator.get_trained_parameters())

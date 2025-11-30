@@ -12,14 +12,31 @@ from cmr.utils.torch_utils import OptimizationError, np_to_tensor
 
 
 class GradientFlowDRO(GeneralizedEL):
-    def __init__(self, model, moment_function, move_variable='x', t_max=10, kernel_z_kwargs=None, **kwargs):
-        super().__init__(model=model, moment_function=moment_function, kernel_z_kwargs=kernel_z_kwargs,
-                         divergence='off', **kwargs)
-        self.move_variable = move_variable                  # Which variable should be moved, see `_init_dual_params`.
-        self.x_previous = None                                      # Previous particle positions
-        self.x_original = None                                     # Original particle positions
-        self.max_num_epochs = kwargs['max_num_epochs']      # Override parent class default of 3 iters for LBFGS
-        self.t_max = t_max                                  # Maximal time
+    def __init__(
+        self,
+        model,
+        moment_function,
+        move_variable="x",
+        t_max=10,
+        kernel_z_kwargs=None,
+        **kwargs,
+    ):
+        super().__init__(
+            model=model,
+            moment_function=moment_function,
+            kernel_z_kwargs=kernel_z_kwargs,
+            divergence="off",
+            **kwargs,
+        )
+        self.move_variable = (
+            move_variable  # Which variable should be moved, see `_init_dual_params`.
+        )
+        self.x_previous = None  # Previous particle positions
+        self.x_original = None  # Original particle positions
+        self.max_num_epochs = kwargs[
+            "max_num_epochs"
+        ]  # Override parent class default of 3 iters for LBFGS
+        self.t_max = t_max  # Maximal time
 
     def init_estimator(self, x_tensor, z_tensor):
         self.x_previous = np_to_tensor(x_tensor)
@@ -30,17 +47,25 @@ class GradientFlowDRO(GeneralizedEL):
         """
         Determine which variables should be moved. Variables are x=(t,y) as in \psi(x;\theta) = y - f(t;\theta).
         """
-        if self.move_variable == 'y':
+        if self.move_variable == "y":
             self.t = copy.deepcopy(self.x_original[0].detach())
-            self.y = torch.nn.Parameter(copy.deepcopy(self.x_original[1].detach()), requires_grad=True)
+            self.y = torch.nn.Parameter(
+                copy.deepcopy(self.x_original[1].detach()), requires_grad=True
+            )
             self.all_dual_params = [self.y]
-        elif self.move_variable == 't':
-            self.t = torch.nn.Parameter(copy.deepcopy(self.x_original[0].detach()), requires_grad=True)
+        elif self.move_variable == "t":
+            self.t = torch.nn.Parameter(
+                copy.deepcopy(self.x_original[0].detach()), requires_grad=True
+            )
             self.y = copy.deepcopy(self.x_original[1].detach())
             self.all_dual_params = [self.t]
-        elif self.move_variable == 'x':
-            self.t = torch.nn.Parameter(copy.deepcopy(self.x_original[0].detach()), requires_grad=True)
-            self.y = torch.nn.Parameter(copy.deepcopy(self.x_original[1].detach()), requires_grad=True)
+        elif self.move_variable == "x":
+            self.t = torch.nn.Parameter(
+                copy.deepcopy(self.x_original[0].detach()), requires_grad=True
+            )
+            self.y = torch.nn.Parameter(
+                copy.deepcopy(self.x_original[1].detach()), requires_grad=True
+            )
             self.all_dual_params = [self.t, self.y]
         else:
             raise NotImplementedError
@@ -48,7 +73,10 @@ class GradientFlowDRO(GeneralizedEL):
 
     def _reset_particles(self):
         with torch.no_grad():
-            self.x_previous = [copy.deepcopy(self.x_original[0].detach()), copy.deepcopy(self.x_original[1].detach())]
+            self.x_previous = [
+                copy.deepcopy(self.x_original[0].detach()),
+                copy.deepcopy(self.x_original[1].detach()),
+            ]
             self.t.copy_(copy.deepcopy(self.x_original[0].detach()))
             self.y.copy_(copy.deepcopy(self.x_original[1].detach()))
 
@@ -60,16 +88,19 @@ class GradientFlowDRO(GeneralizedEL):
         losses = []
         self._reset_particles()
 
-        for i in range(self.dual_optim_args['inneriters']):
+        for i in range(self.dual_optim_args["inneriters"]):
             self.dual_optimizer.zero_grad()
-            _, dual_obj = self.objective(x_tensor, z_tensor, which_obj='dual')
+            _, dual_obj = self.objective(x_tensor, z_tensor, which_obj="dual")
             losses.append(float(dual_obj.detach().numpy()))
             dual_obj.backward()
             self.dual_optimizer.step()
             if not self.are_dual_params_finite():
-                raise OptimizationError('Dual variables are NaN or inf.')
+                raise OptimizationError("Dual variables are NaN or inf.")
             with torch.no_grad():
-                self.x_previous = [copy.deepcopy(self.x[0].detach()), copy.deepcopy(self.x[1].detach())]
+                self.x_previous = [
+                    copy.deepcopy(self.x[0].detach()),
+                    copy.deepcopy(self.x[1].detach()),
+                ]
         return losses
 
     def _objective(self, x, z, *args, **kwargs):
@@ -80,18 +111,18 @@ class GradientFlowDRO(GeneralizedEL):
         # print(np.squeeze(self.x_previous[0].detach().numpy()[:5]))
         # print()
 
-        loss = 1/len(self.x[0]) * torch.norm(self.moment_function(self.x))**2
-        reg = torch.norm(torch.cat(self.x) - torch.cat(self.x_previous))**2
+        loss = 1 / len(self.x[0]) * torch.norm(self.moment_function(self.x)) ** 2
+        reg = torch.norm(torch.cat(self.x) - torch.cat(self.x_previous)) ** 2
         return loss, -loss + self.reg_param * reg
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from experiments.exp_uncertain_lsq import UncertainLSQ
 
     np.random.seed(123456)
     torch.random.manual_seed(123456)
 
-    t_maxes = [2]# [0, 1, 5, 10, 50]
+    t_maxes = [2]  # [0, 1, 5, 10, 50]
     n_runs = 1
     n_train = 100
     load = False
@@ -110,45 +141,57 @@ if __name__ == '__main__':
                 inneriters = 10
 
                 estimator_kwargs = {
-                    "theta_optim": 'sgd',
-                    "dual_optim": 'sgd',
+                    "theta_optim": "sgd",
+                    "dual_optim": "sgd",
                     "theta_optim_args": {"lr": 1e-3},
                     "dual_optim_args": {"lr": t_max / inneriters},  # t_max/num_steps},
                     "inneriters": inneriters,  # t_max GD steps after each theta optimization
                     "max_num_epochs": iters,  # Number of optimizations until convergence of theta
                     "pretrain": False,  # Pretrain using MMR objective
-                    "move_variable": 't',
-                    "reg_param": 1 / (2 * t_max / inneriters) if t_max > 0 and inneriters > 0 else 0,
+                    "move_variable": "t",
+                    "reg_param": 1 / (2 * t_max / inneriters)
+                    if t_max > 0 and inneriters > 0
+                    else 0,
                 }
 
-                gf_estimator = GradientFlowDRO(model=exp.get_model(), moment_function=exp.moment_function, t_max=t_max,
-                                               **estimator_kwargs)
+                gf_estimator = GradientFlowDRO(
+                    model=exp.get_model(),
+                    moment_function=exp.moment_function,
+                    t_max=t_max,
+                    **estimator_kwargs,
+                )
                 gf_estimator.train(train_data=exp.train_data)
 
                 gf_risk = exp.eval_test_data(gf_estimator.model, 10000)
                 gf_res[t_max].append(gf_risk)
 
                 print(t_max, gf_risk)
-                print('t0 ', np.squeeze(gf_estimator.x_original[0].detach().numpy())[:5])
-                print('t_shifted ', np.squeeze(gf_estimator.x[0].detach().numpy())[:5])
+                print(
+                    "t0 ", np.squeeze(gf_estimator.x_original[0].detach().numpy())[:5]
+                )
+                print("t_shifted ", np.squeeze(gf_estimator.x[0].detach().numpy())[:5])
                 print()
 
-            trained_model, stats = estimation(model=exp.get_model(),
-                                              train_data=exp.train_data,
-                                              moment_function=exp.moment_function,
-                                              estimation_method='OLS',
-                                              verbose=True)
+            trained_model, stats = estimation(
+                model=exp.get_model(),
+                train_data=exp.train_data,
+                moment_function=exp.moment_function,
+                estimation_method="OLS",
+                verbose=True,
+            )
             ols_risk = exp.eval_test_data(trained_model, 10000)
             ols_res.append(ols_risk)
-            print('OLS', ols_risk)
+            print("OLS", ols_risk)
 
         gf_mean = {key: np.mean(np.asarray(val), axis=0) for key, val in gf_res.items()}
         gf_std = {key: np.std(np.asarray(val), axis=0) for key, val in gf_res.items()}
         ols_mean = np.mean(np.asarray(ols_res), axis=0)
         ols_std = np.std(np.asarray(ols_res), axis=0)
 
-        res = {'gf': {'mean': gf_mean, 'std': gf_std},
-               'ols': {'mean': ols_mean, 'std': ols_std}}
+        res = {
+            "gf": {"mean": gf_mean, "std": gf_std},
+            "ols": {"mean": ols_mean, "std": ols_std},
+        }
 
         with open(f"ulsq_n_train={n_train}_n_run={n_runs}", "wb") as fp:
             pickle.dump(res, fp)
@@ -162,15 +205,17 @@ if __name__ == '__main__':
     #                 res['ols']['mean'] - res['ols']['std'],
     #                 res['ols']['mean'] + res['ols']['std'],
     #                 alpha=0.2, color='purple')
-    for t_max in res['gf']['mean'].keys():
-        ax.plot(exp.test_supports, res['gf']['mean'][t_max], label=fr"$T = {t_max}$")
-        ax.fill_between(exp.test_supports,
-                        res['gf']['mean'][t_max] - res['gf']['std'][t_max],
-                        res['gf']['mean'][t_max] + res['gf']['std'][t_max],
-                        alpha=0.2)
-    ax.set_xlabel('Support')
-    ax.set_ylabel(r'$\|A(t)\theta - b \|$')
+    for t_max in res["gf"]["mean"].keys():
+        ax.plot(exp.test_supports, res["gf"]["mean"][t_max], label=rf"$T = {t_max}$")
+        ax.fill_between(
+            exp.test_supports,
+            res["gf"]["mean"][t_max] - res["gf"]["std"][t_max],
+            res["gf"]["mean"][t_max] + res["gf"]["std"][t_max],
+            alpha=0.2,
+        )
+    ax.set_xlabel("Support")
+    ax.set_ylabel(r"$\|A(t)\theta - b \|$")
     plt.legend()
     plt.show()
 
-    print(res['gf']['mean'][50])
+    print(res["gf"]["mean"][50])

@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 import matplotlib
-matplotlib.use('Qt5Agg')
+
+matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -15,16 +16,34 @@ if __name__ == "__main__":
     ymax = 70
     x_lim = 10
 
-    marker = ['v', 'o', 's', 'd', 'p', '*', 'h']
-    linestyles = ['solid', 'dashed', 'solid', 'dotted', 'dashdot',]
-    colors = ['tab:red', 'tab:orange', 'tab:blue', 'tab:cyan', 'tab:purple', 'tab:olive', 'tab:pink', 'tab:green']
+    marker = ["v", "o", "s", "d", "p", "*", "h"]
+    linestyles = [
+        "solid",
+        "dashed",
+        "solid",
+        "dotted",
+        "dashdot",
+    ]
+    colors = [
+        "tab:red",
+        "tab:orange",
+        "tab:blue",
+        "tab:cyan",
+        "tab:purple",
+        "tab:olive",
+        "tab:pink",
+        "tab:green",
+    ]
 
     from cmr.default_config import methods
-    estimator_kwargs = methods['KernelEL']['estimator_kwargs']
+
+    estimator_kwargs = methods["KernelEL"]["estimator_kwargs"]
     model = Model()
 
-    x = [torch.Tensor(np.linspace(-x_lim, x_lim, 500)).reshape((-1, 1)),
-         torch.Tensor(np.linspace(-10, 10, 500)).reshape((-1, 1))]
+    x = [
+        torch.Tensor(np.linspace(-x_lim, x_lim, 500)).reshape((-1, 1)),
+        torch.Tensor(np.linspace(-10, 10, 500)).reshape((-1, 1)),
+    ]
     n_reg = 15
     kl_reg_params = np.logspace(3, -2, n_reg)
 
@@ -39,23 +58,38 @@ if __name__ == "__main__":
     #                              annealing=True, **estimator_kwargs)
     # y_annealing = estimator._optimize_dual_func_gd(x_tensor=x, z_tensor=x[0], iters=100000)
 
-    estimator = KMMAnalysis(x=x, ymax=ymax, model=model,
-                            n_random_features=5000,
-                            kl_reg_param=0.01,
-                            f_divergence_reg='kl',
-                            **estimator_kwargs)
-    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence='kl')
+    estimator = KMMAnalysis(
+        x=x,
+        ymax=ymax,
+        model=model,
+        n_random_features=5000,
+        kl_reg_param=0.01,
+        f_divergence_reg="kl",
+        **estimator_kwargs,
+    )
+    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence="kl")
     y_kl_rff = estimator.eval_rkhs_func()
 
-    estimator = KMMAnalysis(x=x, ymax=ymax, model=model,
-                            kl_reg_param=0.01,
-                            f_divergence_reg='kl',
-                            **estimator_kwargs)
-    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence='kl')
+    estimator = KMMAnalysis(
+        x=x,
+        ymax=ymax,
+        model=model,
+        kl_reg_param=0.01,
+        f_divergence_reg="kl",
+        **estimator_kwargs,
+    )
+    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence="kl")
     y_kl = estimator.eval_rkhs_func()
 
-    estimator = KMMAnalysis(x=x, ymax=ymax, model=model, kl_reg_param=kl_reg_param, f_divergence_reg='log', **estimator_kwargs)
-    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence='exact')
+    estimator = KMMAnalysis(
+        x=x,
+        ymax=ymax,
+        model=model,
+        kl_reg_param=kl_reg_param,
+        f_divergence_reg="log",
+        **estimator_kwargs,
+    )
+    estimator._optimize_dual_params_cvxpy(x_tensor=x, z_tensor=x, f_divergence="exact")
     y_exact = estimator.eval_rkhs_func()
 
     y_true = estimator.eval_psi_h(x)
@@ -65,11 +99,21 @@ if __name__ == "__main__":
     # plt.style.use('ggplot')
     plt.rcParams.update(NEURIPS_RCPARAMS)
 
-    fig, ax = plt.subplots(1, figsize=(LINE_WIDTH/2, LINE_WIDTH/3.5))
-    ax.plot(x[0], y_true, label=r'$\psi(x)^T h$', color=colors[0], linestyle=linestyles[0])
-    ax.plot(x[0], y_kl, label=r'$\epsilon = 0.01$', color=colors[1], linestyle=linestyles[1])
-    ax.plot(x[0], y_kl_rff, label=r'RFF: $\epsilon = 0.01$', color=colors[3], linestyle=linestyles[3])
-    ax.plot(x[0], y_exact, label=r'MMD only', color=colors[2], linestyle=linestyles[2])
+    fig, ax = plt.subplots(1, figsize=(LINE_WIDTH / 2, LINE_WIDTH / 3.5))
+    ax.plot(
+        x[0], y_true, label=r"$\psi(x)^T h$", color=colors[0], linestyle=linestyles[0]
+    )
+    ax.plot(
+        x[0], y_kl, label=r"$\epsilon = 0.01$", color=colors[1], linestyle=linestyles[1]
+    )
+    ax.plot(
+        x[0],
+        y_kl_rff,
+        label=r"RFF: $\epsilon = 0.01$",
+        color=colors[3],
+        linestyle=linestyles[3],
+    )
+    ax.plot(x[0], y_exact, label=r"MMD only", color=colors[2], linestyle=linestyles[2])
     # for y_an, alpha in zip(y_annealing, np.logspace(-1, 0, len(y_annealing))):
     #     ax.plot(x[0], y_an, color=colors[4], linestyle=linestyles[4], alpha=alpha)
     #
@@ -91,13 +135,13 @@ if __name__ == "__main__":
 
     # ax.spines['top'].set_visible(False)
     # ax.spines['right'].set_visible(False)
-    ax.set_xlabel('x')
-    ax.set_ylabel(r'$f(x) + \eta$')
+    ax.set_xlabel("x")
+    ax.set_ylabel(r"$f(x) + \eta$")
     ax.set_yticks([])
     ax.set_xticks([])
     ax.set_xlim(-x_lim, x_lim)
 
-    leg = ax.legend(loc='upper right', bbox_transform=fig.transFigure)
+    leg = ax.legend(loc="upper right", bbox_transform=fig.transFigure)
     plt.draw()
     print(leg)
     p = leg.get_window_extent()
@@ -121,7 +165,7 @@ if __name__ == "__main__":
     # axins.set_xticklabels([])
     # axins.set_yticklabels([])
     # ax.indicate_inset_zoom(axins, edgecolor="black")
-    plt.savefig('annealing.pdf', dpi=300)
+    plt.savefig("annealing.pdf", dpi=300)
     plt.show()
 
     # from matplotlib import cbook
